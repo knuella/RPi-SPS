@@ -1,5 +1,9 @@
 import json
 import logging
+import threading
+
+from threading import Thread
+from time import sleep
 
 import zmq
 
@@ -15,23 +19,6 @@ def is_valid_publisher_message(message):
     the others are, concatenated, valid JSON.
     """
     return True
-
-
-def recv_new_values(source):
-    m = source.recv_multipart()
-    logging.debug("NEW VALUE: %s", m)
-    if is_valid_publisher_message(m):
-        message_list.append(m)
-    # silently drop invalid messages for now
-
-
-def publish_new_values(publisher):
-    try:
-        m = message_list.pop()
-    except IndexError:
-        pass
-    else:
-        publisher.send_multipart(m)
 
 
 def split_request_message(message):
@@ -62,33 +49,105 @@ def get_requests(router):
         logging.debug("REQUEST: %s", request)
 
 
-def main():
-    dispatch = {}
+def get_value_updates(context, terminate):
+     # clients connect to the pull to send new values to be published
+    values = context.socket(zmq.PULL)
+    values.bind("tcp://127.0.0.10:5556")
 
-    context = zmq.Context.instance()
+    poll = zmq.Poller()
+    poll.register(values, flags=zmq.POLLIN)
+
+    # connects to a socket in the propagate_value_updates thread
+    propagate = context.socket(zmq.PUSH)
+    propagate.connect("inproc://propagate_values")
+
+    while not terminate.acquire(timeout=0):
+        if poll.poll(timeout=2000):
+            try:
+                new_value = values.recv_multipart()
+            except zmq.ZMQError:
+                break
+            except (KeyboardInterrupt, SystemExit):
+                break
+            else:
+                propagate.send_multipart(new_value)
+
+    logging.debug("terminating get_value_updates")
+    terminate.release()
+
+
+def propagate_value_updates(context, terminate):
+    # new messages are passed through from the get_value_updates thread
+    values = context.socket(zmq.PULL)
+    values.bind("inproc://propagate_values")
+
+    poll = zmq.Poller()
+    poll.register(values, flags=zmq.POLLIN)
+
+    # clients connect to this socket to get informed about value changes
     pub = context.socket(zmq.PUB)
-    sources_pull = context.socket(zmq.PULL)
-    requests = context.socket(zmq.ROUTER)
-
-    dispatch[pub] = publish_new_values
-    dispatch[sources_pull] = recv_new_values
-    dispatch[requests] = get_requests
-
     pub.bind("tcp://127.0.0.10:5555")
-    sources_pull.bind("tcp://127.0.0.10:5556")
-    requests.bind("tcp://127.0.0.10:5557")
 
-    poller = zmq.Poller()
-    poller.register(pub, flags=zmq.POLLOUT)
-    poller.register(sources_pull, flags=zmq.POLLIN)
-    poller.register(requests, flags=zmq.POLLIN)
+    while not terminate.acquire(timeout=0):
+        if poll.poll(timeout=2000):
+            try:
+                new_value = values.recv_multipart()
+            except zmq.ZMQError:
+                break
+            except (KeyboardInterrupt, SystemExit):
+                break
+            else:
+                if is_valid_publisher_message(new_value):
+                    pub.send_multipart(new_value)
+                else:
+                    logging.error("%s is not a valid message to be published",
+                                  new_value)
 
-    # main loop
-    # should use some library for event-driven development
-    while True:
-        for socket, _ in poller.poll(timeout=0):
-            dispatch[socket](socket)
+    logging.debug("terminating propagate_value_updates")
+    terminate.release()
 
+
+def main():
+    context = zmq.Context.instance()
+    terminate = threading.Lock()
+    # released when the program is supposed to terminate
+    # check with "not termiante.acquire(timeout=0)"
+    # and don't forget to release when the program is supposed to
+    # quit, e.g. due to a KeyboardInterrupt or SystemExit exception in
+    # the thread
+    terminate.acquire()
+
+    threads = [
+        Thread(target=propagate_value_updates, args=[context, terminate],
+               name="propagate_value_updates"),
+        Thread(target=get_value_updates, args=[context, terminate],
+               name="get_value_updates")
+    ]
+
+    for t in threads:
+        t.start()
+
+    while not terminate.acquire(timeout=0):
+        try:
+            sleep(5)
+        except (KeyboardInterrupt, SystemExit):
+            break
+    terminate.release()
+
+    logging.debug("Collection threads")
+    interrupted_again = False
+    while threading.active_count() != 1:
+        try:
+            for t in threading.enumerate():
+                if t is not threading.main_thread():
+                    t.join(timeout=0.125)
+                    if not t.is_alive():
+                        logging.debug("Collected thread %s", t.name)
+        except KeyboardInterrupt:
+            if interrupted_again:
+                break
+            logging.info("Still collecting threads press C-c again to quit")
+            interrupted_again = True
 
 
 if __name__ == '__main__':
