@@ -115,6 +115,73 @@ class RequestsThread(Thread):
 
 
 
+class ServicesThread(Thread):
+    def __init__(self, context, terminate, **kwargs):
+        super().__init__(**kwargs)
+
+        self.terminate = terminate
+
+        self.router = context.socket(zmq.ROUTER)
+        # TODO: address should be read from config and passed in as a
+        # parameter
+        self.router.bind("tcp://127.0.0.10:6666")
+
+        # connects to the thread handling services
+        self.requests = context.socket(zmq.PAIR)
+        self.requests.connect("inproc://services_requests")
+
+        # maps name of requester to zmq socket identity
+        self.pending_requests = {}
+
+        self.poller = zmq.Poller()
+        self.poller.register(self.router)
+        self.poller.register(self.services)
+
+
+    def _get_socket_result(self, socket, poll_result):
+        for s, r in poll_result:
+            if s is socket:
+                return r
+        return 0
+
+
+    def can_handle_reply(self, poll_result):
+        services_result = self._get_socket_result(self.services, poll_result)
+        requests_result = self._get_socket_result(self.router, poll_result)
+
+        return ((services_result & zmq.POLLIN) and
+                (requests_result & zmq.POLLOUT))
+
+
+    def can_handle_request(self, poll_result):
+        services_result = self._get_socket_result(self.services, poll_result)
+        requests_result = self._get_socket_result(self.router, poll_result)
+
+        return ((services_result & zmq.POLLOUT) and
+                (requests_result & zmq.POLLIN))
+
+
+    def handle_request(self):
+        pass
+
+    def handle_reply(self):
+        pass
+
+    def run(self):
+        while not self.terminate.is_set():
+            try:
+                ready_sockets = self.poller.poll(timeout=1000)
+                if self.can_handle_request(ready_sockets):
+                    self.handle_request()
+                if self.can_handle_reply(ready_sockets):
+                    self.handle_reply()
+            except (KeyboardInterrupt, SystemExit):
+                self.terminate.set()
+
+        logging.debug("terminating %s", self.name)
+
+
+
 def get_value_updates(context, terminate):
      # clients connect to the pull to send new values to be published
     values = context.socket(zmq.PULL)
