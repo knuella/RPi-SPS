@@ -4,6 +4,7 @@ import threading
 
 from threading import Thread
 from time import sleep
+from collections import deque
 
 import zmq
 
@@ -36,17 +37,57 @@ def invalid_request():
     return b'invalid request'
 
 
-def get_requests(router):
-    m = router.recv_multipart()
-    logging.debug("FULL REQUEST: %s", m)
-    try:
-        identity, request = split_request_message(m)
-    except ValueError:
-        reply = [m[0], b'', invalid_request()]
-        logging.debug("REPLY: %s", reply)
-        router.send_multipart(reply)
-    else:
-        logging.debug("REQUEST: %s", request)
+class RequestsThread(Thread):
+    def __init__(self, context, terminate, **kwargs):
+        super().__init__(**kwargs)
+
+        self.terminate = terminate
+
+        self.router = context.socket(zmq.ROUTER)
+        # TODO: address should be read from config and passed in as a
+        # parameter
+        self.router.bind("tcp://127.0.0.10:6665")
+
+        # connects to the thread handling services
+        self.services = context.socket(zmq.PAIR)
+        self.services.bind("inproc://services_requests")
+
+        # maps name of requester to zmq socket identity
+        self.pending_requests = {}
+
+        # newest reply on the left
+        self.replies = deque()
+
+        self.poller = zmq.Poller()
+        self.poller.register(self.router, zmq.POLLIN)
+        self.poller.register(self.services, zmq.POLLIN)
+
+        # TODO: use some event-loop module?
+        self.dispatch = {
+            self.router: self.handle_requests,
+            self.services: self.handle_replies
+        }
+
+
+    def handle_requests(self, flag):
+        pass
+
+
+    def handle_replies(self, flag):
+        pass
+
+
+    def run(self):
+        while not self.terminate.is_set():
+            try:
+                ready_sockets = self.poller.poll(timeout=2000)
+                if ready_sockets:
+                    for s, flag in ready_sockets:
+                        self.dispatch[s](flag)
+            except (KeyboardInterrupt, SystemExit):
+                self.terminate.set()
+
+        logging.debug("terminating %s", self.name)
 
 
 def get_value_updates(context, terminate):
@@ -96,7 +137,6 @@ def propagate_value_updates(context, terminate):
         except (KeyboardInterrupt, SystemExit):
             terminate.set()
 
-
     logging.debug("terminating propagate_value_updates")
 
 
@@ -111,7 +151,8 @@ def main():
         Thread(target=propagate_value_updates, args=[context, terminate],
                name="propagate_value_updates"),
         Thread(target=get_value_updates, args=[context, terminate],
-               name="get_value_updates")
+               name="get_value_updates"),
+        RequestsThread(context, terminate, name="requests_thread")
     ]
 
     for t in threads:
