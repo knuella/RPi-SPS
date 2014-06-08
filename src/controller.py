@@ -22,6 +22,11 @@ def is_valid_publisher_message(message):
     return True
 
 
+def is_valid_request(message):
+    # should do some sanity checking on request messages
+    return True
+
+
 def split_request_message(message):
     """
     Returns a tuple (identity, JSON)
@@ -55,39 +60,59 @@ class RequestsThread(Thread):
         # maps name of requester to zmq socket identity
         self.pending_requests = {}
 
-        # newest reply on the left
-        self.replies = deque()
-
         self.poller = zmq.Poller()
-        self.poller.register(self.router, zmq.POLLIN)
-        self.poller.register(self.services, zmq.POLLIN)
-
-        # TODO: use some event-loop module?
-        self.dispatch = {
-            self.router: self.handle_requests,
-            self.services: self.handle_replies
-        }
+        self.poller.register(self.router)
+        self.poller.register(self.services)
 
 
-    def handle_requests(self, flag):
-        pass
+    def _get_socket_result(self, socket, poll_result):
+        for s, r in poll_result:
+            if s is socket:
+                return r
+        return 0
 
 
-    def handle_replies(self, flag):
-        pass
+    def can_handle_reply(self, poll_result):
+        services_result = self._get_socket_result(self.services, poll_result)
+        router_result = self._get_socket_result(self.router, poll_result)
+
+        return ((services_result & zmq.POLLIN) and
+                (router_result & zmq.POLLOUT))
+
+
+    def can_handle_request(self, poll_result):
+        services_result = self._get_socket_result(self.services, poll_result)
+        router_result = self._get_socket_result(self.router, poll_result)
+
+        return ((services_result & zmq.POLLOUT) and
+                (router_result & zmq.POLLIN))
+
+
+    def handle_request(self):
+        raw_request = self.router.recv_multipart()
+        if is_valid_request(message):
+            self.services.send_multipart(raw_message)
+        # TODO: dropping invalid messages silently for now
+
+
+    def handle_reply(self):
+        raw_reply = self.services.recv_multipart()
+        self.router.send_multipart(raw_reply)
 
 
     def run(self):
         while not self.terminate.is_set():
             try:
-                ready_sockets = self.poller.poll(timeout=2000)
-                if ready_sockets:
-                    for s, flag in ready_sockets:
-                        self.dispatch[s](flag)
+                ready_sockets = self.poller.poll(timeout=1000)
+                if self.can_handle_request(ready_sockets):
+                    self.handle_request()
+                if self.can_handle_reply(ready_sockets):
+                    self.handle_reply()
             except (KeyboardInterrupt, SystemExit):
                 self.terminate.set()
 
         logging.debug("terminating %s", self.name)
+
 
 
 def get_value_updates(context, terminate):
