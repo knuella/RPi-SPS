@@ -61,19 +61,15 @@ def get_value_updates(context, terminate):
     propagate = context.socket(zmq.PUSH)
     propagate.connect("inproc://propagate_values")
 
-    while not terminate.acquire(timeout=0):
-        if poll.poll(timeout=2000):
-            try:
+    while not terminate.is_set():
+        try:
+            if poll.poll(timeout=2000):
                 new_value = values.recv_multipart()
-            except zmq.ZMQError:
-                break
-            except (KeyboardInterrupt, SystemExit):
-                break
-            else:
                 propagate.send_multipart(new_value)
+        except (KeyboardInterrupt, SystemExit):
+            terminate.set()
 
     logging.debug("terminating get_value_updates")
-    terminate.release()
 
 
 def propagate_value_updates(context, terminate):
@@ -88,34 +84,28 @@ def propagate_value_updates(context, terminate):
     pub = context.socket(zmq.PUB)
     pub.bind("tcp://127.0.0.10:5555")
 
-    while not terminate.acquire(timeout=0):
-        if poll.poll(timeout=2000):
-            try:
+    while not terminate.is_set():
+        try:
+            if poll.poll(timeout=2000):
                 new_value = values.recv_multipart()
-            except zmq.ZMQError:
-                break
-            except (KeyboardInterrupt, SystemExit):
-                break
-            else:
                 if is_valid_publisher_message(new_value):
                     pub.send_multipart(new_value)
                 else:
                     logging.error("%s is not a valid message to be published",
                                   new_value)
+        except (KeyboardInterrupt, SystemExit):
+            terminate.set()
+
 
     logging.debug("terminating propagate_value_updates")
-    terminate.release()
 
 
 def main():
     context = zmq.Context.instance()
-    terminate = threading.Lock()
-    # released when the program is supposed to terminate
-    # check with "not termiante.acquire(timeout=0)"
-    # and don't forget to release when the program is supposed to
-    # quit, e.g. due to a KeyboardInterrupt or SystemExit exception in
-    # the thread
-    terminate.acquire()
+    terminate = threading.Event()
+    # set when the program is supposed to terminate
+    # don't forget to set in case of e.g. a KeyboardInterrupt or
+    # SystemExit exception in the thread and break out of it
 
     threads = [
         Thread(target=propagate_value_updates, args=[context, terminate],
@@ -127,12 +117,11 @@ def main():
     for t in threads:
         t.start()
 
-    while not terminate.acquire(timeout=0):
+    while not terminate.is_set():
         try:
             sleep(5)
         except (KeyboardInterrupt, SystemExit):
-            break
-    terminate.release()
+            terminate.set()
 
     logging.debug("Collection threads")
     interrupted_again = False
