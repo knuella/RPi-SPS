@@ -88,16 +88,31 @@ class RequestsThread(Thread):
                 (router_result & zmq.POLLIN))
 
 
+    def reply_invalid_request(raw_request):
+        raise NotImplementedError
+
+
     def handle_request(self):
         raw_request = self.router.recv_multipart()
+        identity, message = split_request_message(raw_request)
+
         if is_valid_request(message):
-            self.services.send_multipart(raw_message)
-        # TODO: dropping invalid messages silently for now
+            self.pending_requests[message["from"]] = identity
+            self.services.send_multipart(raw_request[2:])
+        else:
+            self.reply_invalid_request(raw_request)
 
 
     def handle_reply(self):
         raw_reply = self.services.recv_multipart()
-        self.router.send_multipart(raw_reply)
+        message = json.loads(raw_reply.decode('utf-8'))
+        if message['dst'] in self.pending_requests:
+            self.router.send_multipart([
+                self.pending_requests[message['dst']],
+                '',
+                raw_reply
+            ])
+        # TODO: dropping replies to unkown dst silently for now
 
 
     def run(self):
@@ -116,26 +131,29 @@ class RequestsThread(Thread):
 
 
 class ServicesThread(Thread):
+    SERVICE_HELLO = -1
+
+
     def __init__(self, context, terminate, **kwargs):
         super().__init__(**kwargs)
 
         self.terminate = terminate
 
-        self.router = context.socket(zmq.ROUTER)
+        self.services = context.socket(zmq.ROUTER)
         # TODO: address should be read from config and passed in as a
         # parameter
-        self.router.bind("tcp://127.0.0.10:6666")
+        self.services.bind("tcp://127.0.0.10:6666")
 
-        # connects to the thread handling services
+        # connects to the thread handling requests
         self.requests = context.socket(zmq.PAIR)
         self.requests.connect("inproc://services_requests")
 
-        # maps name of requester to zmq socket identity
-        self.pending_requests = {}
+        # maps service name to identity
+        self.services_ready = {}
 
         self.poller = zmq.Poller()
-        self.poller.register(self.router)
         self.poller.register(self.services)
+        self.poller.register(self.requests)
 
 
     def _get_socket_result(self, socket, poll_result):
@@ -147,7 +165,7 @@ class ServicesThread(Thread):
 
     def can_handle_reply(self, poll_result):
         services_result = self._get_socket_result(self.services, poll_result)
-        requests_result = self._get_socket_result(self.router, poll_result)
+        requests_result = self._get_socket_result(self.requests, poll_result)
 
         return ((services_result & zmq.POLLIN) and
                 (requests_result & zmq.POLLOUT))
@@ -155,17 +173,39 @@ class ServicesThread(Thread):
 
     def can_handle_request(self, poll_result):
         services_result = self._get_socket_result(self.services, poll_result)
-        requests_result = self._get_socket_result(self.router, poll_result)
+        requests_result = self._get_socket_result(self.requests, poll_result)
 
         return ((services_result & zmq.POLLOUT) and
                 (requests_result & zmq.POLLIN))
 
 
-    def handle_request(self):
+    def reply_unkown_service(self, message):
         pass
 
+
+    def handle_request(self):
+        raw_request = self.requests.recv_multipart()
+        message = json.loads(raw_request)
+        if message["dst"] not in self.services_ready:
+            # TODO: cache request for timeout time
+            self.reply_unkown_service(message)
+        else:
+            self.services.send_multipart([
+                message["dst"],
+                b'',
+                raw_request
+            ])
+
+
     def handle_reply(self):
-        pass
+        raw_reply = self.services.recv_multipart()
+        identity, message = split_request_message(raw_reply)
+        # overwrite previous entry
+        self.services_ready[message["from"]] = identity
+        if not message["status"] == SERVICE_HELLO:
+            # handle unwanted replies in the RequestsThread
+            self.requests.send_multipart(raw_reply[2:])
+
 
     def run(self):
         while not self.terminate.is_set():
@@ -244,7 +284,8 @@ def main():
                name="propagate_value_updates"),
         Thread(target=get_value_updates, args=[context, terminate],
                name="get_value_updates"),
-        RequestsThread(context, terminate, name="requests_thread")
+        RequestsThread(context, terminate, name="requests_thread"),
+        ServicesThread(context, terminate, name="services_thread")
     ]
 
     for t in threads:
