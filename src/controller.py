@@ -9,6 +9,12 @@ from collections import deque
 import zmq
 
 
+_SERVICE_HELLO = -1
+_SERVICE_UNKNOWN = -2
+
+
+
+
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.DEBUG)
 message_list = []
 
@@ -36,6 +42,13 @@ def split_request_message(message):
     request = json.loads(raw_request.decode("utf-8"))
 
     return (identity, request)
+
+
+def decode_message(message):
+    return json.loads(b''.join(message).decode("utf-8"))
+
+def encode_message(message):
+    return json.dumps(message).encode("utf-8")
 
 
 def invalid_request():
@@ -93,8 +106,12 @@ class RequestsThread(Thread):
 
 
     def handle_request(self):
+        logging.debug("%s handle_request called",
+                      self.__class__.__name__)
         raw_request = self.router.recv_multipart()
         identity, message = split_request_message(raw_request)
+        logging.debug("%s received message: %s",
+                      self.__class__.__name__, message)
 
         if is_valid_request(message):
             self.pending_requests[message["from"]] = identity
@@ -104,14 +121,17 @@ class RequestsThread(Thread):
 
 
     def handle_reply(self):
+        logging.debug("%s handle_reply called",
+                      self.__class__.__name__)
         raw_reply = self.services.recv_multipart()
-        message = json.loads(raw_reply.decode('utf-8'))
+        message = decode_message(raw_reply)
+        logging.debug("%s reply message is: %s",
+                      self.__class__.__name__, message)
         if message['dst'] in self.pending_requests:
-            self.router.send_multipart([
-                self.pending_requests[message['dst']],
-                '',
-                raw_reply
-            ])
+            reply = [self.pending_requests[message['dst']],
+                     b'']
+            reply.extend(raw_reply)
+            self.router.send_multipart(reply)
         # TODO: dropping replies to unkown dst silently for now
 
 
@@ -131,9 +151,6 @@ class RequestsThread(Thread):
 
 
 class ServicesThread(Thread):
-    SERVICE_HELLO = -1
-
-
     def __init__(self, context, terminate, **kwargs):
         super().__init__(**kwargs)
 
@@ -180,29 +197,40 @@ class ServicesThread(Thread):
 
 
     def reply_unkown_service(self, message):
-        pass
+        message = {
+            "type": "Reply",
+            "from": "controller",
+            "dst": message["from"],
+            "status": _SERVICE_UNKNOWN
+        }
+        self.requests.send(encode_message(message))
 
 
     def handle_request(self):
+        logging.debug("%s handle_request called",
+                      self.__class__.__name__)
         raw_request = self.requests.recv_multipart()
-        message = json.loads(raw_request)
+        message = decode_message(raw_request)
+        logging.debug("%s received %s",
+                      self.__class__.__name__, message)
         if message["dst"] not in self.services_ready:
             # TODO: cache request for timeout time
             self.reply_unkown_service(message)
         else:
-            self.services.send_multipart([
-                message["dst"],
-                b'',
-                raw_request
-            ])
+            request = [self.services_ready[message["dst"]], b'']
+            request.extend(raw_request)
+            self.services.send_multipart(request)
 
 
     def handle_reply(self):
+        logging.debug("%s handle_reply called",
+                      self.__class__.__name__)
         raw_reply = self.services.recv_multipart()
         identity, message = split_request_message(raw_reply)
+        logging.debug("%s reply is: %s", self.name, message)
         # overwrite previous entry
         self.services_ready[message["from"]] = identity
-        if not message["status"] == SERVICE_HELLO:
+        if not message["status"] == _SERVICE_HELLO:
             # handle unwanted replies in the RequestsThread
             self.requests.send_multipart(raw_reply[2:])
 
