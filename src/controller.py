@@ -38,14 +38,17 @@ def split_request_message(message):
     Returns a tuple (identity, JSON)
     """
     identity = message[0]
-    raw_request = b''.join(message[message.index(b''):])
-    request = json.loads(raw_request.decode("utf-8"))
+    raw_request = message[message.index(b''):]
 
-    return (identity, request)
+    return (identity, raw_request)
 
 
 def decode_message(message):
-    return json.loads(b''.join(message).decode("utf-8"))
+    try:
+        return json.loads(b''.join(message).decode("utf-8"))
+    except TypeError:
+        return json.loads(message.decode("utf-8"))
+
 
 def encode_message(message):
     return json.dumps(message).encode("utf-8")
@@ -101,23 +104,24 @@ class RequestsThread(Thread):
                 (router_result & zmq.POLLIN))
 
 
-    def reply_invalid_request(raw_request):
+    def reply_invalid_request(identity, raw_request):
         raise NotImplementedError
 
 
     def handle_request(self):
         logging.debug("%s handle_request called",
                       self.__class__.__name__)
-        raw_request = self.router.recv_multipart()
-        identity, message = split_request_message(raw_request)
+        full_request = self.router.recv_multipart()
+        identity, raw_request = split_request_message(full_request)
+        message = decode_message(raw_request)
         logging.debug("%s received message: %s",
                       self.__class__.__name__, message)
 
         if is_valid_request(message):
             self.pending_requests[message["from"]] = identity
-            self.services.send_multipart(raw_request[2:])
+            self.services.send_multipart(raw_request)
         else:
-            self.reply_invalid_request(raw_request)
+            self.reply_invalid_request(identity, raw_request)
 
 
     def handle_reply(self):
@@ -225,14 +229,15 @@ class ServicesThread(Thread):
     def handle_reply(self):
         logging.debug("%s handle_reply called",
                       self.__class__.__name__)
-        raw_reply = self.services.recv_multipart()
-        identity, message = split_request_message(raw_reply)
+        full_reply = self.services.recv_multipart()
+        identity, raw_reply = split_request_message(full_reply)
+        message = decode_message(raw_reply)
         logging.debug("%s reply is: %s", self.name, message)
         # overwrite previous entry
         self.services_ready[message["from"]] = identity
         if not message["status"] == _SERVICE_HELLO:
             # handle unwanted replies in the RequestsThread
-            self.requests.send_multipart(raw_reply[2:])
+            self.requests.send_multipart(raw_reply)
 
 
     def run(self):
