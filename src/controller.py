@@ -54,9 +54,6 @@ def encode_message(message):
     return json.dumps(message).encode("utf-8")
 
 
-def invalid_request():
-    return b'invalid request'
-
 
 class RequestsThread(Thread):
     def __init__(self, context, terminate, **kwargs):
@@ -81,19 +78,18 @@ class RequestsThread(Thread):
         self.poller.register(self.services)
 
 
-    def _get_socket_result(self, socket, poll_result):
-        for s, r in poll_result:
-            if s is socket:
-                return r
-        return 0
+    def run(self):
+        while not self.terminate.is_set():
+            try:
+                ready_sockets = self.poller.poll(timeout=1000)
+                if self.can_handle_request(ready_sockets):
+                    self.handle_request()
+                if self.can_handle_reply(ready_sockets):
+                    self.handle_reply()
+            except (KeyboardInterrupt, SystemExit):
+                self.terminate.set()
 
-
-    def can_handle_reply(self, poll_result):
-        services_result = self._get_socket_result(self.services, poll_result)
-        router_result = self._get_socket_result(self.router, poll_result)
-
-        return ((services_result & zmq.POLLIN) and
-                (router_result & zmq.POLLOUT))
+        logging.debug("terminating %s", self.name)
 
 
     def can_handle_request(self, poll_result):
@@ -104,8 +100,12 @@ class RequestsThread(Thread):
                 (router_result & zmq.POLLIN))
 
 
-    def reply_invalid_request(identity, raw_request):
-        raise NotImplementedError
+    def can_handle_reply(self, poll_result):
+        services_result = self._get_socket_result(self.services, poll_result)
+        router_result = self._get_socket_result(self.router, poll_result)
+
+        return ((services_result & zmq.POLLIN) and
+                (router_result & zmq.POLLOUT))
 
 
     def handle_request(self):
@@ -139,18 +139,15 @@ class RequestsThread(Thread):
         # TODO: dropping replies to unkown dst silently for now
 
 
-    def run(self):
-        while not self.terminate.is_set():
-            try:
-                ready_sockets = self.poller.poll(timeout=1000)
-                if self.can_handle_request(ready_sockets):
-                    self.handle_request()
-                if self.can_handle_reply(ready_sockets):
-                    self.handle_reply()
-            except (KeyboardInterrupt, SystemExit):
-                self.terminate.set()
+    def reply_invalid_request(identity, raw_request):
+        raise NotImplementedError
 
-        logging.debug("terminating %s", self.name)
+
+    def _get_socket_result(self, socket, poll_result):
+        for s, r in poll_result:
+            if s is socket:
+                return r
+        return 0
 
 
 
@@ -177,19 +174,18 @@ class ServicesThread(Thread):
         self.poller.register(self.requests)
 
 
-    def _get_socket_result(self, socket, poll_result):
-        for s, r in poll_result:
-            if s is socket:
-                return r
-        return 0
+    def run(self):
+        while not self.terminate.is_set():
+            try:
+                ready_sockets = self.poller.poll(timeout=1000)
+                if self.can_handle_request(ready_sockets):
+                    self.handle_request()
+                if self.can_handle_reply(ready_sockets):
+                    self.handle_reply()
+            except (KeyboardInterrupt, SystemExit):
+                self.terminate.set()
 
-
-    def can_handle_reply(self, poll_result):
-        services_result = self._get_socket_result(self.services, poll_result)
-        requests_result = self._get_socket_result(self.requests, poll_result)
-
-        return ((services_result & zmq.POLLIN) and
-                (requests_result & zmq.POLLOUT))
+        logging.debug("terminating %s", self.name)
 
 
     def can_handle_request(self, poll_result):
@@ -200,14 +196,12 @@ class ServicesThread(Thread):
                 (requests_result & zmq.POLLIN))
 
 
-    def reply_unkown_service(self, message):
-        message = {
-            "type": "Reply",
-            "from": "controller",
-            "dst": message["from"],
-            "status": _SERVICE_UNKNOWN
-        }
-        self.requests.send(encode_message(message))
+    def can_handle_reply(self, poll_result):
+        services_result = self._get_socket_result(self.services, poll_result)
+        requests_result = self._get_socket_result(self.requests, poll_result)
+
+        return ((services_result & zmq.POLLIN) and
+                (requests_result & zmq.POLLOUT))
 
 
     def handle_request(self):
@@ -240,18 +234,21 @@ class ServicesThread(Thread):
             self.requests.send_multipart(raw_reply)
 
 
-    def run(self):
-        while not self.terminate.is_set():
-            try:
-                ready_sockets = self.poller.poll(timeout=1000)
-                if self.can_handle_request(ready_sockets):
-                    self.handle_request()
-                if self.can_handle_reply(ready_sockets):
-                    self.handle_reply()
-            except (KeyboardInterrupt, SystemExit):
-                self.terminate.set()
+    def reply_unkown_service(self, message):
+        message = {
+            "type": "Reply",
+            "from": "controller",
+            "dst": message["from"],
+            "status": _SERVICE_UNKNOWN
+        }
+        self.requests.send(encode_message(message))
 
-        logging.debug("terminating %s", self.name)
+
+    def _get_socket_result(self, socket, poll_result):
+        for s, r in poll_result:
+            if s is socket:
+                return r
+        return 0
 
 
 
