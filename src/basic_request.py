@@ -38,7 +38,7 @@ request_message = json.dumps({
 service.send(service_message_hello)
 request.send(request_message)
 
-print("Service Request: ", service.recv())
+print("Service Request: ", service.recv_multipart())
 service.send(service_message_reply)
 
-print("Request Reply: ", request.recv())
+print("Request Reply: ", request.recv_multipart())
