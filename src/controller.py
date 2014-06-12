@@ -1,6 +1,10 @@
 import json
 import logging
 import threading
+import argparse
+import textwrap
+import configparser
+import sys
 
 from threading import Thread
 from time import sleep
@@ -17,6 +21,22 @@ _SERVICE_UNKNOWN = -2
 
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.DEBUG)
 message_list = []
+
+def get_config():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--config", default="./controller.conf",
+                        help="Path to a configuration file")
+    args = parser.parse_args()
+
+    config = configparser.ConfigParser()
+    try:
+        with open(args.config, "r") as config_file:
+            config.read_file(config_file)
+    except (FileNotFoundError, PermissionError):
+        sys.exit("Could not open file '{}'".format(args.config))
+
+    return config["controller"]
+
 
 def is_valid_publisher_message(message):
     """
@@ -56,7 +76,7 @@ def encode_message(message):
 
 
 class RequestsThread(Thread):
-    def __init__(self, context, terminate, **kwargs):
+    def __init__(self, context, terminate, requests_address, **kwargs):
         super().__init__(**kwargs)
 
         self.terminate = terminate
@@ -64,7 +84,7 @@ class RequestsThread(Thread):
         self.router = context.socket(zmq.ROUTER)
         # TODO: address should be read from config and passed in as a
         # parameter
-        self.router.bind("tcp://127.0.0.10:6665")
+        self.router.bind(requests_address)
 
         # connects to the thread handling services
         self.services = context.socket(zmq.PAIR)
@@ -152,7 +172,7 @@ class RequestsThread(Thread):
 
 
 class ServicesThread(Thread):
-    def __init__(self, context, terminate, **kwargs):
+    def __init__(self, context, terminate, services_address, **kwargs):
         super().__init__(**kwargs)
 
         self.terminate = terminate
@@ -160,7 +180,7 @@ class ServicesThread(Thread):
         self.services = context.socket(zmq.ROUTER)
         # TODO: address should be read from config and passed in as a
         # parameter
-        self.services.bind("tcp://127.0.0.10:6666")
+        self.services.bind(services_address)
 
         # connects to the thread handling requests
         self.requests = context.socket(zmq.PAIR)
@@ -252,10 +272,10 @@ class ServicesThread(Thread):
 
 
 
-def get_value_updates(context, terminate):
+def get_value_updates(context, terminate, new_values_address):
      # clients connect to the pull to send new values to be published
     values = context.socket(zmq.PULL)
-    values.bind("tcp://127.0.0.10:5556")
+    values.bind(new_values_address)
 
     poll = zmq.Poller()
     poll.register(values, flags=zmq.POLLIN)
@@ -275,7 +295,7 @@ def get_value_updates(context, terminate):
     logging.debug("terminating get_value_updates")
 
 
-def propagate_value_updates(context, terminate):
+def propagate_value_updates(context, terminate, pub_address):
     # new messages are passed through from the get_value_updates thread
     values = context.socket(zmq.PULL)
     values.bind("inproc://propagate_values")
@@ -285,7 +305,7 @@ def propagate_value_updates(context, terminate):
 
     # clients connect to this socket to get informed about value changes
     pub = context.socket(zmq.PUB)
-    pub.bind("tcp://127.0.0.10:5555")
+    pub.bind(pub_address)
 
     while not terminate.is_set():
         try:
@@ -303,6 +323,7 @@ def propagate_value_updates(context, terminate):
 
 
 def main():
+    config = get_config()
     context = zmq.Context.instance()
     terminate = threading.Event()
     # set when the program is supposed to terminate
@@ -310,12 +331,16 @@ def main():
     # SystemExit exception in the thread and break out of it
 
     threads = [
-        Thread(target=propagate_value_updates, args=[context, terminate],
+        Thread(target=propagate_value_updates,
+               args=[context, terminate, config["pub_address"]],
                name="propagate_value_updates"),
-        Thread(target=get_value_updates, args=[context, terminate],
+        Thread(target=get_value_updates,
+               args=[context, terminate, config["new_values_address"]],
                name="get_value_updates"),
-        RequestsThread(context, terminate, name="requests_thread"),
-        ServicesThread(context, terminate, name="services_thread")
+        RequestsThread(context, terminate, config["requests_address"],
+                       name="requests_thread"),
+        ServicesThread(context, terminate, config["services_address"],
+                       name="services_thread")
     ]
 
     for t in threads:
