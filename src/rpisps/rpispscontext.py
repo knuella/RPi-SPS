@@ -97,7 +97,7 @@ class RpispsContext():
 
     def recv_updates(self):
         raw = self._new_values.recv_multipart()
-        m = MessageDict.decode(b''.join(raw[1:]))
+        m = Message.decode(b''.join(raw[1:]))
         return m
 
 
