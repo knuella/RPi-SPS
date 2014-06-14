@@ -5,6 +5,8 @@ import argparse
 
 import zmq
 
+from rpisps.constants import *
+
 
 class Message(dict):
     def encode(self):
