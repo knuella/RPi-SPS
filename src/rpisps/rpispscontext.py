@@ -78,6 +78,8 @@ class RpispsContext():
             m["payload"] = payload
 
         self._requests.send(m.encode())
+        reply = self._requests.recv()
+        return Message.decode(reply)
 
 
     def write_value(self, name, value):
@@ -89,6 +91,8 @@ class RpispsContext():
         })
 
         self._requests.send(m.encode())
+        reply = self._requests.recv()
+        return Message.decode(reply)
 
 
     def recv_updates(self):
