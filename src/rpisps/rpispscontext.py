@@ -102,11 +102,25 @@ class RpispsContext():
 
 
     def recv_request(self):
-        raise NotImplementedError
+        raw = self._services.recv_multipart()
+        m = Message.decode(raw[2:])
+        return m
 
 
-    def send_reply(dst, payload, status=0):
-        raise NotImplementedError
+    def send_reply(dst, payload, **extra):
+        m = Message({
+            "type": "Reply",
+            "timestamp": extra.get("timestamp", time.time()),
+            "status": extra.get("status", 0),
+            "from": self._config.name,
+            "dst": dst,
+            "payload": payload
+        })
+        self._services.send_multipart([
+            CONTROLLER_IDENTITY,
+            b'',
+            m.encode()
+        ])
 
 
     def set_subscriptions(self, names):
@@ -120,15 +134,4 @@ class RpispsContext():
 
 
     def make_source_known(self):
-        m = Message({
-            "type": "Reply",
-            "timestamp": time.time(),
-            "from": self._config.name,
-            "status": SERVICE_HELLO,
-        })
-
-        self._services.send_multipart([
-            CONTROLLER_IDENTITY,
-            b'',
-            m.encode()
-        ])
+        self.send_reply("NONE", status=SERIVCE_HELLO)
