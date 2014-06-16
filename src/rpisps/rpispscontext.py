@@ -107,7 +107,7 @@ class RpispsContext():
         return m
 
 
-    def send_reply(dst, payload=None, **extra):
+    def send_reply(self, dst, payload=None, **extra):
         m = Message({
             "type": "Reply",
             "timestamp": extra.get("timestamp", time.time()),
@@ -136,4 +136,4 @@ class RpispsContext():
 
 
     def make_source_known(self):
-        self.send_reply("NONE", status=SERIVCE_HELLO)
+        self.send_reply("NONE", status=SERVICE_HELLO)
