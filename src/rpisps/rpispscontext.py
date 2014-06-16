@@ -107,15 +107,17 @@ class RpispsContext():
         return m
 
 
-    def send_reply(dst, payload, **extra):
+    def send_reply(dst, payload=None, **extra):
         m = Message({
             "type": "Reply",
             "timestamp": extra.get("timestamp", time.time()),
             "status": extra.get("status", 0),
             "from": self._config.name,
             "dst": dst,
-            "payload": payload
         })
+        if payload:
+            m["payload"] = payload
+
         self._services.send_multipart([
             CONTROLLER_IDENTITY,
             b'',
