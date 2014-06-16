@@ -11,11 +11,7 @@ from time import sleep
 from collections import deque
 
 import zmq
-
-
-_SERVICE_HELLO = -1
-_SERVICE_UNKNOWN = -2
-
+from rpisps.constants import *
 
 
 
@@ -249,7 +245,7 @@ class ServicesThread(Thread):
         logging.debug("%s reply is: %s", self.name, message)
         # overwrite previous entry
         self.services_ready[message["from"]] = identity
-        if not message["status"] == _SERVICE_HELLO:
+        if not message["status"] == SERVICE_HELLO:
             # handle unwanted replies in the RequestsThread
             self.requests.send_multipart(raw_reply)
 
@@ -259,7 +255,7 @@ class ServicesThread(Thread):
             "type": "Reply",
             "from": "controller",
             "dst": message["from"],
-            "status": _SERVICE_UNKNOWN
+            "status": SERVICE_UNKNOWN
         }
         self.requests.send(encode_message(message))
 
