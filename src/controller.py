@@ -78,8 +78,6 @@ class RequestsThread(Thread):
         self.terminate = terminate
 
         self.router = context.socket(zmq.ROUTER)
-        # TODO: address should be read from config and passed in as a
-        # parameter
         self.router.bind(requests_address)
 
         # connects to the thread handling services
@@ -174,8 +172,6 @@ class ServicesThread(Thread):
         self.terminate = terminate
 
         self.services = context.socket(zmq.ROUTER)
-        # TODO: address should be read from config and passed in as a
-        # parameter
         self.services.bind(services_address)
 
         # connects to the thread handling requests
