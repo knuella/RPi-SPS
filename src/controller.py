@@ -78,6 +78,7 @@ class RequestsThread(Thread):
         self.terminate = terminate
 
         self.router = context.socket(zmq.ROUTER)
+        self.router.setsockopt(zmq.IDENTITY, CONTROLLER_IDENTITY)
         self.router.bind(requests_address)
 
         # connects to the thread handling services
@@ -172,6 +173,7 @@ class ServicesThread(Thread):
         self.terminate = terminate
 
         self.services = context.socket(zmq.ROUTER)
+        self.services.setsockopt(zmq.IDENTITY, CONTROLLER_IDENTITY)
         self.services.bind(services_address)
 
         # connects to the thread handling requests
