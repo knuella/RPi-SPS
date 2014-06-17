@@ -246,6 +246,20 @@ class ServicesThread(Thread):
         if not message["status"] == SERVICE_HELLO:
             # handle unwanted replies in the RequestsThread
             self.requests.send_multipart(raw_reply)
+        else:
+            self.reply_service_hello(message)
+
+
+    def reply_service_hello(self, message):
+        reply = {
+            "type": "Reply",
+            "from": "controller",
+            "dst": message["from"],
+            "status": SERVICE_HELLO
+        }
+        raw_reply = [self.services_ready[reply["dst"]], b'',
+                     encode_message(reply)]
+        self.services.send_multipart(raw_reply)
 
 
     def reply_unkown_service(self, message):

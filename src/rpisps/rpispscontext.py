@@ -136,4 +136,15 @@ class RpispsContext():
 
 
     def make_source_known(self):
-        self.send_reply("NONE", status=SERVICE_HELLO)
+        poller = zmq.Poller()
+        poller.register(self._services, flags=zmq.POLLIN)
+        reply_received = False
+
+        # wait for the _services connection to be build-up,
+        # because the ROUTER socket brutally drops every message he
+        # does not know how to deliver
+        while not reply_received:
+            self.send_reply("NONE", status=SERVICE_HELLO)
+            if poller.poll(timeout=10):
+                self._services.recv_multipart()
+                reply_received = True
