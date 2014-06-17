@@ -103,7 +103,7 @@ class RpispsContext():
 
     def recv_request(self):
         raw = self._services.recv_multipart()
-        m = Message.decode(raw[2:])
+        m = Message.decode(raw[2])
         return m
 
 
