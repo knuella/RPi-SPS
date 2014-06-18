@@ -340,14 +340,14 @@ def main():
 
     threads = [
         Thread(target=propagate_value_updates,
-               args=[context, terminate, config["pub_address"]],
+               args=[context, terminate, config["new_values_address"]],
                name="propagate_value_updates"),
         Thread(target=get_value_updates,
-               args=[context, terminate, config["new_values_address"]],
+               args=[context, terminate, config["submit_values_address"]],
                name="get_value_updates"),
-        RequestsThread(context, terminate, config["requests_address"],
+        RequestsThread(context, terminate, config["request_address"],
                        name="requests_thread"),
-        ServicesThread(context, terminate, config["services_address"],
+        ServicesThread(context, terminate, config["service_address"],
                        name="services_thread")
     ]
 
