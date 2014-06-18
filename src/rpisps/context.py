@@ -5,21 +5,11 @@ import argparse
 
 import zmq
 
+from rpisps.message import Message
 from rpisps.constants import *
 
 
-class Message(dict):
-    def encode(self):
-        return json.dumps(self).encode("utf-8")
-
-    @classmethod
-    def decode(cls, s):
-        # TODO: catch TypeError
-        return cls(json.loads(s.decode("utf-8")))
-
-
-
-class RpispsContext():
+class Context():
     def __init__(self):
         self._config = self._get_config()
         config = self._config
