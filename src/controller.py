@@ -71,26 +71,28 @@ def encode_message(message):
 
 
 
-class RequestsThread(Thread):
-    def __init__(self, context, terminate, requests_address, **kwargs):
+class ServicesRequestsBaseThread(Thread):
+    def __init__(self, context, terminate, router_address, **kwargs):
         super().__init__(**kwargs)
 
         self.terminate = terminate
 
         self.router = context.socket(zmq.ROUTER)
         self.router.setsockopt(zmq.IDENTITY, CONTROLLER_IDENTITY)
-        self.router.bind(requests_address)
+        self.router.bind(router_address)
 
-        # connects to the thread handling services
-        self.services = context.socket(zmq.PAIR)
-        self.services.bind("inproc://services_requests")
-
-        # maps name of requester to zmq socket identity
-        self.pending_requests = {}
+        self.other_thread = context.socket(zmq.PAIR)
+        try:
+            self.other_thread.bind("inproc://services_requests")
+        except zmq.error.ZMQError as e:
+            if e.errno == zmq.EADDRINUSE:
+                self.other_thread.connect("inproc://services_requests")
+            else:
+                raise
 
         self.poller = zmq.Poller()
         self.poller.register(self.router)
-        self.poller.register(self.services)
+        self.poller.register(self.other_thread)
 
 
     def run(self):
@@ -107,26 +109,49 @@ class RequestsThread(Thread):
         logging.debug("terminating %s", self.name)
 
 
-    def can_handle_request(self, poll_result):
-        services_result = self._get_socket_result(self.services, poll_result)
-        router_result = self._get_socket_result(self.router, poll_result)
+    def handle_request(self):
+        raise NotImplementedError
 
-        return ((services_result & zmq.POLLOUT) and
-                (router_result & zmq.POLLIN))
+
+    def handle_reply(self):
+        raise NotImplementedError
+
+
+    def can_handle_request(self, poll_result):
+        raise NotImplementedError
 
 
     def can_handle_reply(self, poll_result):
-        services_result = self._get_socket_result(self.services, poll_result)
-        router_result = self._get_socket_result(self.router, poll_result)
+        raise NotImplementedError
 
-        return ((services_result & zmq.POLLIN) and
-                (router_result & zmq.POLLOUT))
+
+    def get_socket_result(self, socket, poll_result):
+        for s, r in poll_result:
+            if s is socket:
+                return r
+        return 0
+
+
+    def split_router_message(self, raw_message):
+        pass
+
+
+
+class RequestsThread(ServicesRequestsBaseThread):
+    def __init__(self, context, terminate, requests_address, **kwargs):
+        super().__init__(context, terminate, requests_address, **kwargs)
+
+        self.services = self.other_thread
+        self.requests = self.router
+
+        # maps name of requester to zmq socket identity
+        self.pending_requests = {}
 
 
     def handle_request(self):
         logging.debug("%s handle_request called",
                       self.__class__.__name__)
-        full_request = self.router.recv_multipart()
+        full_request = self.requests.recv_multipart()
         identity, raw_request = split_request_message(full_request)
         message = decode_message(raw_request)
         logging.debug("%s received message: %s",
@@ -150,7 +175,7 @@ class RequestsThread(Thread):
             reply = [self.pending_requests[message['dst']],
                      b'']
             reply.extend(raw_reply)
-            self.router.send_multipart(reply)
+            self.requests.send_multipart(reply)
         # TODO: dropping replies to unkown dst silently for now
 
 
@@ -158,64 +183,16 @@ class RequestsThread(Thread):
         raise NotImplementedError
 
 
-    def _get_socket_result(self, socket, poll_result):
-        for s, r in poll_result:
-            if s is socket:
-                return r
-        return 0
 
-
-
-class ServicesThread(Thread):
+class ServicesThread(ServicesRequestsBaseThread):
     def __init__(self, context, terminate, services_address, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__(context, terminate, services_address, **kwargs)
 
-        self.terminate = terminate
-
-        self.services = context.socket(zmq.ROUTER)
-        self.services.setsockopt(zmq.IDENTITY, CONTROLLER_IDENTITY)
-        self.services.bind(services_address)
-
-        # connects to the thread handling requests
-        self.requests = context.socket(zmq.PAIR)
-        self.requests.connect("inproc://services_requests")
+        self.services = self.router
+        self.requests = self.other_thread
 
         # maps service name to identity
         self.services_ready = {}
-
-        self.poller = zmq.Poller()
-        self.poller.register(self.services)
-        self.poller.register(self.requests)
-
-
-    def run(self):
-        while not self.terminate.is_set():
-            try:
-                ready_sockets = self.poller.poll(timeout=1000)
-                if self.can_handle_request(ready_sockets):
-                    self.handle_request()
-                if self.can_handle_reply(ready_sockets):
-                    self.handle_reply()
-            except (KeyboardInterrupt, SystemExit):
-                self.terminate.set()
-
-        logging.debug("terminating %s", self.name)
-
-
-    def can_handle_request(self, poll_result):
-        services_result = self._get_socket_result(self.services, poll_result)
-        requests_result = self._get_socket_result(self.requests, poll_result)
-
-        return ((services_result & zmq.POLLOUT) and
-                (requests_result & zmq.POLLIN))
-
-
-    def can_handle_reply(self, poll_result):
-        services_result = self._get_socket_result(self.services, poll_result)
-        requests_result = self._get_socket_result(self.requests, poll_result)
-
-        return ((services_result & zmq.POLLIN) and
-                (requests_result & zmq.POLLOUT))
 
 
     def handle_request(self):
@@ -270,13 +247,6 @@ class ServicesThread(Thread):
             "status": SERVICE_UNKNOWN
         }
         self.requests.send(encode_message(message))
-
-
-    def _get_socket_result(self, socket, poll_result):
-        for s, r in poll_result:
-            if s is socket:
-                return r
-        return 0
 
 
 
