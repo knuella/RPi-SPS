@@ -91,8 +91,8 @@ class ServicesRequestsBaseThread(Thread):
                 raise
 
         self.poller = zmq.Poller()
-        self.poller.register(self.router)
-        self.poller.register(self.other_thread)
+        self.poller.register(self.router, flags=zmq.POLLIN)
+        self.poller.register(self.other_thread, flags=zmq.POLLIN)
 
 
     def run(self):
@@ -125,6 +125,28 @@ class ServicesRequestsBaseThread(Thread):
         raise NotImplementedError
 
 
+    def can_handle_reply(self, poll_result):
+        raise NotImplementedError
+
+
+    def can_pass_to_router(self, poll_result):
+        for s, result in poll_result:
+            if s is self.other_thread:
+                router_result = self.router.poll(timeout=0, flags=zmq.POLLOUT)
+                if router_result:
+                    return result & zmq.POLLIN
+        return False
+
+
+    def can_pass_to_other(self, poll_result):
+        for s, result in poll_result:
+            if s is self.router:
+                other_result = self.other_thread.poll(timeout=0, flags=zmq.POLLOUT)
+                if other_result:
+                    return result & zmq.POLLIN
+        return False
+
+
     def get_socket_result(self, socket, poll_result):
         for s, r in poll_result:
             if s is socket:
@@ -133,7 +155,7 @@ class ServicesRequestsBaseThread(Thread):
 
 
     def split_router_message(self, raw_message):
-        pass
+        raise NotImplementedError
 
 
 
@@ -177,6 +199,11 @@ class RequestsThread(ServicesRequestsBaseThread):
             reply.extend(raw_reply)
             self.requests.send_multipart(reply)
         # TODO: dropping replies to unkown dst silently for now
+
+
+    can_handle_reply = ServicesRequestsBaseThread.can_pass_to_router
+
+    can_handle_request = ServicesRequestsBaseThread.can_pass_to_other
 
 
     def reply_invalid_request(identity, raw_request):
@@ -247,6 +274,11 @@ class ServicesThread(ServicesRequestsBaseThread):
             "status": SERVICE_UNKNOWN
         }
         self.requests.send(encode_message(message))
+
+
+    can_handle_reply = ServicesRequestsBaseThread.can_pass_to_other
+
+    can_handle_request = ServicesRequestsBaseThread.can_pass_to_router
 
 
 
