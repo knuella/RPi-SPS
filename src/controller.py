@@ -34,16 +34,6 @@ def get_config():
     return config["controller"]
 
 
-def is_valid_publisher_message(message):
-    """
-    Returns True when the message format appears to be valid.
-
-    A message is considered valid when its first frame is a string and
-    the others are, concatenated, valid JSON.
-    """
-    return True
-
-
 def is_valid_request(message):
     # should do some sanity checking on request messages
     return True
@@ -282,54 +272,36 @@ class ServicesThread(ServicesRequestsBaseThread):
 
 
 
-def get_value_updates(context, terminate, new_values_address):
-     # clients connect to the pull to send new values to be published
-    values = context.socket(zmq.PULL)
-    values.bind(new_values_address)
+class PropagateValueUpdates(Thread):
+    def __init__(self, context, terminate, pub_address, submit_values_address,
+                 **kwargs):
+        super().__init__(**kwargs)
 
-    poll = zmq.Poller()
-    poll.register(values, flags=zmq.POLLIN)
+        self.terminate = terminate
 
-    # connects to a socket in the propagate_value_updates thread
-    propagate = context.socket(zmq.PUSH)
-    propagate.connect("inproc://propagate_values")
+        self.new_values = context.socket(zmq.PULL)
+        self.new_values.bind(submit_values_address)
 
-    while not terminate.is_set():
-        try:
-            if poll.poll(timeout=2000):
-                new_value = values.recv_multipart()
-                propagate.send_multipart(new_value)
-        except (KeyboardInterrupt, SystemExit):
-            terminate.set()
-
-    logging.debug("terminating get_value_updates")
+        self.pub = context.socket(zmq.PUB)
+        self.pub.bind(pub_address)
 
 
-def propagate_value_updates(context, terminate, pub_address):
-    # new messages are passed through from the get_value_updates thread
-    values = context.socket(zmq.PULL)
-    values.bind("inproc://propagate_values")
+    def run(self):
+        while not self.terminate.is_set():
+            try:
+                if self.new_values.poll(timeout=200, flags=zmq.POLLIN):
+                    message = self.new_values.recv_multipart()
+                    if self.is_valid_message(message):
+                        self.pub.send_multipart(message)
+            except (KeyboardInterrupt, SystemExit):
+                terminate.set()
 
-    poll = zmq.Poller()
-    poll.register(values, flags=zmq.POLLIN)
+        logging.debug("terminating %s", self.name)
 
-    # clients connect to this socket to get informed about value changes
-    pub = context.socket(zmq.PUB)
-    pub.bind(pub_address)
 
-    while not terminate.is_set():
-        try:
-            if poll.poll(timeout=2000):
-                new_value = values.recv_multipart()
-                if is_valid_publisher_message(new_value):
-                    pub.send_multipart(new_value)
-                else:
-                    logging.error("%s is not a valid message to be published",
-                                  new_value)
-        except (KeyboardInterrupt, SystemExit):
-            terminate.set()
+    def is_valid_message(self, message):
+        return True
 
-    logging.debug("terminating propagate_value_updates")
 
 
 def main():
@@ -341,12 +313,10 @@ def main():
     # SystemExit exception in the thread and break out of it
 
     threads = [
-        Thread(target=propagate_value_updates,
-               args=[context, terminate, config["new_values_address"]],
-               name="propagate_value_updates"),
-        Thread(target=get_value_updates,
-               args=[context, terminate, config["submit_values_address"]],
-               name="get_value_updates"),
+        PropagateValueUpdates(context, terminate,
+                              config["new_values_address"],
+                              config["submit_values_address"],
+                              name="propagte_values_thread"),
         RequestsThread(context, terminate, config["request_address"],
                        name="requests_thread"),
         ServicesThread(context, terminate, config["service_address"],
