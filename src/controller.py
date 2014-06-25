@@ -2,7 +2,6 @@ import json
 import logging
 import threading
 import argparse
-import textwrap
 import configparser
 import sys
 
@@ -18,7 +17,6 @@ from rpisps.message import Message
 
 
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.DEBUG)
-message_list = []
 
 def get_config():
     parser = argparse.ArgumentParser()
