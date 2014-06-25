@@ -11,7 +11,9 @@ from time import sleep
 from collections import deque
 
 import zmq
+
 from rpisps.constants import *
+from rpisps.message import Message
 
 
 
@@ -37,18 +39,6 @@ def get_config():
 def is_valid_request(message):
     # should do some sanity checking on request messages
     return True
-
-
-def decode_message(message):
-    try:
-        return json.loads(b''.join(message).decode("utf-8"))
-    except TypeError:
-        return json.loads(message.decode("utf-8"))
-
-
-def encode_message(message):
-    return json.dumps(message).encode("utf-8")
-
 
 
 class ServicesRequestsBaseThread(Thread):
@@ -134,16 +124,6 @@ class ServicesRequestsBaseThread(Thread):
         return 0
 
 
-    def split_router_message(self, raw_message):
-        identity = raw_message[0]
-        # should use something like "rindex", right now it finds the
-        # first occurence of b''
-        last_empty_frame_pos = raw_message.index(b'')
-        raw_request = raw_message[last_empty_frame_pos:]
-
-        return (identity, raw_request)
-
-
 
 class RequestsThread(ServicesRequestsBaseThread):
     def __init__(self, context, terminate, requests_address, **kwargs):
@@ -160,29 +140,27 @@ class RequestsThread(ServicesRequestsBaseThread):
         logging.debug("%s handle_request called",
                       self.__class__.__name__)
         full_request = self.requests.recv_multipart()
-        identity, raw_request = self.split_router_message(full_request)
-        message = decode_message(raw_request)
+        identity, message = Message.split_router_message(full_request)
         logging.debug("%s received message: %s",
                       self.__class__.__name__, message)
 
         if is_valid_request(message):
             self.pending_requests[message["from"]] = identity
-            self.services.send_multipart(raw_request)
+            self.services.send(message.encode())
         else:
-            self.reply_invalid_request(identity, raw_request)
+            self.reply_invalid_request(identity, message)
 
 
     def handle_reply(self):
         logging.debug("%s handle_reply called",
                       self.__class__.__name__)
-        raw_reply = self.services.recv_multipart()
-        message = decode_message(raw_reply)
+        raw_reply = self.services.recv()
+        message = Message.decode(raw_reply)
         logging.debug("%s reply message is: %s",
                       self.__class__.__name__, message)
         if message['dst'] in self.pending_requests:
-            reply = [self.pending_requests[message['dst']],
-                     b'']
-            reply.extend(raw_reply)
+            reply = self.pending_requests[message['dst']][:]
+            reply.extend([b'', raw_reply])
             self.requests.send_multipart(reply)
         # TODO: dropping replies to unkown dst silently for now
 
@@ -192,7 +170,7 @@ class RequestsThread(ServicesRequestsBaseThread):
     can_handle_request = ServicesRequestsBaseThread.can_pass_to_other
 
 
-    def reply_invalid_request(identity, raw_request):
+    def reply_invalid_request(identity, message):
         raise NotImplementedError
 
 
@@ -212,7 +190,7 @@ class ServicesThread(ServicesRequestsBaseThread):
         logging.debug("%s handle_request called",
                       self.__class__.__name__)
         raw_request = self.requests.recv_multipart()
-        message = decode_message(raw_request)
+        message = Message.decode(raw_request)
         logging.debug("%s received %s",
                       self.__class__.__name__, message)
         if message["dst"] not in self.services_ready:
@@ -228,38 +206,37 @@ class ServicesThread(ServicesRequestsBaseThread):
         logging.debug("%s handle_reply called",
                       self.__class__.__name__)
         full_reply = self.services.recv_multipart()
-        identity, raw_reply = self.split_router_message(full_reply)
-        message = decode_message(raw_reply)
+        identity, message = Message.split_router_message(full_reply)
         logging.debug("%s reply is: %s", self.name, message)
         # overwrite previous entry
         self.services_ready[message["from"]] = identity
         if not message["status"] == SERVICE_HELLO:
             # handle unwanted replies in the RequestsThread
-            self.requests.send_multipart(raw_reply)
+            self.requests.send(message.encode())
         else:
             self.reply_service_hello(message)
 
 
     def reply_service_hello(self, message):
-        reply = {
+        reply = Message({
             "type": "Reply",
             "from": "controller",
             "dst": message["from"],
             "status": SERVICE_HELLO
-        }
-        raw_reply = [self.services_ready[reply["dst"]], b'',
-                     encode_message(reply)]
+        })
+        raw_reply = self.services_ready[reply["dst"]][:]
+        raw_reply.extend([b'', reply.encode()])
         self.services.send_multipart(raw_reply)
 
 
     def reply_unkown_service(self, message):
-        message = {
+        reply = Message({
             "type": "Reply",
             "from": "controller",
             "dst": message["from"],
             "status": SERVICE_UNKNOWN
-        }
-        self.requests.send(encode_message(message))
+        })
+        self.requests.send(message.encode())
 
 
     can_handle_reply = ServicesRequestsBaseThread.can_pass_to_other
