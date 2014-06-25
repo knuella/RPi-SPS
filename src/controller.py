@@ -39,16 +39,6 @@ def is_valid_request(message):
     return True
 
 
-def split_request_message(message):
-    """
-    Returns a tuple (identity, JSON)
-    """
-    identity = message[0]
-    raw_request = message[message.index(b''):]
-
-    return (identity, raw_request)
-
-
 def decode_message(message):
     try:
         return json.loads(b''.join(message).decode("utf-8"))
@@ -145,7 +135,13 @@ class ServicesRequestsBaseThread(Thread):
 
 
     def split_router_message(self, raw_message):
-        raise NotImplementedError
+        identity = raw_message[0]
+        # should use something like "rindex", right now it finds the
+        # first occurence of b''
+        last_empty_frame_pos = raw_message.index(b'')
+        raw_request = raw_message[last_empty_frame_pos:]
+
+        return (identity, raw_request)
 
 
 
@@ -164,7 +160,7 @@ class RequestsThread(ServicesRequestsBaseThread):
         logging.debug("%s handle_request called",
                       self.__class__.__name__)
         full_request = self.requests.recv_multipart()
-        identity, raw_request = split_request_message(full_request)
+        identity, raw_request = self.split_router_message(full_request)
         message = decode_message(raw_request)
         logging.debug("%s received message: %s",
                       self.__class__.__name__, message)
@@ -232,7 +228,7 @@ class ServicesThread(ServicesRequestsBaseThread):
         logging.debug("%s handle_reply called",
                       self.__class__.__name__)
         full_reply = self.services.recv_multipart()
-        identity, raw_reply = split_request_message(full_reply)
+        identity, raw_reply = self.split_router_message(full_reply)
         message = decode_message(raw_reply)
         logging.debug("%s reply is: %s", self.name, message)
         # overwrite previous entry
