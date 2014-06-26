@@ -34,11 +34,6 @@ def get_config():
     return config["controller"]
 
 
-def is_valid_request(message):
-    # should do some sanity checking on request messages
-    return True
-
-
 class ServicesRequestsBaseThread(Thread):
     def __init__(self, context, terminate, router_address, **kwargs):
         super().__init__(**kwargs)
@@ -142,7 +137,7 @@ class RequestsThread(ServicesRequestsBaseThread):
         logging.debug("%s received message: %s",
                       self.__class__.__name__, message)
 
-        if is_valid_request(message):
+        if self.is_valid_request(message):
             self.pending_requests[message["from"]] = identity
             self.services.send(message.encode())
         else:
@@ -170,6 +165,13 @@ class RequestsThread(ServicesRequestsBaseThread):
 
     def reply_invalid_request(identity, message):
         raise NotImplementedError
+
+
+    def is_valid_request(self, message):
+        # should do some sanity checking on request messages
+        return True
+
+
 
 
 
