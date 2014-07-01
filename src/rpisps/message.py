@@ -30,6 +30,14 @@ class Message(dict):
 
 
     @classmethod
+    def create_router_message(cls, identity, request):
+        m = identity[:]
+        m.append(b'')
+        m.append(cls.encode(request))
+        return m
+
+
+    @classmethod
     def join_frames(cls, frames):
         return b''.join(frames)
 
@@ -37,3 +45,4 @@ class Message(dict):
 
 split_router_message = Message.split_router_message
 join_frames = Message.join_frames
+create_router_message = Message.create_router_message

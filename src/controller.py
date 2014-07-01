@@ -152,8 +152,8 @@ class RequestsThread(ServicesRequestsBaseThread):
         logging.debug("%s reply message is: %s",
                       self.__class__.__name__, message)
         if message['dst'] in self.pending_requests:
-            reply = self.pending_requests[message['dst']][:]
-            reply.extend([b'', raw_reply])
+            dst_identity = self.pending_requests[message["dst"]]
+            reply = Message.create_router_message(dst_identity, message)
             self.requests.send_multipart(reply)
         # TODO: dropping replies to unkown dst silently for now
 
@@ -197,8 +197,8 @@ class ServicesThread(ServicesRequestsBaseThread):
             # TODO: cache request for timeout time
             self.reply_unkown_service(message)
         else:
-            request = [self.services_ready[message["dst"]], b'']
-            request.extend(raw_request)
+            dst_identity = self.services_ready[message["dst"]]
+            request = Message.create_router_message(dst_identity, message)
             self.services.send_multipart(request)
 
 
@@ -224,8 +224,8 @@ class ServicesThread(ServicesRequestsBaseThread):
             "dst": message["from"],
             "status": SERVICE_HELLO
         })
-        raw_reply = self.services_ready[reply["dst"]][:]
-        raw_reply.extend([b'', reply.encode()])
+        dst_identity = self.services_ready[reply["dst"]]
+        raw_reply = Message.create_router_message(dst_identity, reply)
         self.services.send_multipart(raw_reply)
 
 
