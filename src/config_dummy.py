@@ -1,4 +1,4 @@
-from rpisps.rpispscontext import RpispsContext
+from rpisps.context import Context as RpispsContext
 from rpisps.constants import *
 
 
@@ -29,19 +29,19 @@ class ConfigDummy():
         self.reply_error(request)
 
 
-    def reply_error(self, request):
-        self.context.send_reply(request["dst"], status=1)
+    def reply_error(self, dst):
+        self.context.send_reply(dst, status=1)
 
 
     def handle_request(self):
         request = self.context.recv_request()
 
         if "RequestValue" == request["type"]:
-            handle_request_value(request)
+            self.handle_request_value(request)
         elif "WriteValue" == request["type"]:
-            handle_write_value(request)
+            self.handle_write_value(request)
         else:
-            reply_error(request)
+            self.reply_error(request)
 
 
 
