@@ -44,6 +44,62 @@ class ConfigDummy():
             self.reply_error(request)
 
 
+    def get_config(targets, collection):
+        """Returns a list of dictionaries with configuration.
+
+        'targets' is a list of dictionaries holding identifiers
+        (object_id) for each of the requested configurations.  If the
+        list is empty all elements from the specified 'collection' are
+        retrieved.
+
+        'collection' can be one of "templates", "instances",
+        "localisation" and specifies which part of the configuration
+        should be searched.
+
+        """
+        pass
+
+
+    def add_config(target, collection):
+        """Add the target to the configuration collection
+
+        'target' is a dictionary holding new configurations
+        to be added.
+
+        'collection' can be one of "templates", "instances",
+        "localisation" and specifies which part of the configuration
+        the target should be added to.
+
+        """
+        pass
+
+
+    def delete_config(target, collection):
+        """Delete the target from the configuration collection
+
+        'target' is the id of configuration to be deleted.
+
+        'collection' can be one of "templates", "instances",
+        "localisation" and specifies which part of the configuration
+        the target should be deleted from.
+
+        """
+        pass
+
+
+    def update_config(target, collection):
+        """Replace the object with the same id as target with target.
+
+        'target' is the new version of object with targets id.
+
+        'collection' can be one of "templates", "instances",
+        "localisation" and specifies which part of the configuration
+        the target should be replaced in.
+
+        """
+        pass
+
+
 
 def main():
     config = ConfigDummy()
