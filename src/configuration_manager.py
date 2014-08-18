@@ -5,7 +5,7 @@ from rpisps.constants import *
 dummy_config = {}
 
 
-class ConfigDummy():
+class ConfigurationManager():
     def __init__(self):
         self.context = RpispsContext()
         self.context.make_source_known()
@@ -102,7 +102,7 @@ class ConfigDummy():
 
 
 def main():
-    config = ConfigDummy()
+    config = ConfigurationManager()
 
     while True:
         config.handle_request()
