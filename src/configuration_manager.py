@@ -44,7 +44,7 @@ class ConfigurationManager():
             self.reply_error(request)
 
 
-    def get_config(targets, collection):
+    def get_config(self, targets, collection):
         """Returns a list of dictionaries with configuration.
 
         'targets' is a list of dictionaries holding identifiers
@@ -60,7 +60,7 @@ class ConfigurationManager():
         pass
 
 
-    def add_config(target, collection):
+    def add_config(self, target, collection):
         """Add the target to the configuration collection
 
         'target' is a dictionary holding new configurations
@@ -74,7 +74,7 @@ class ConfigurationManager():
         pass
 
 
-    def delete_config(target, collection):
+    def delete_config(self, target, collection):
         """Delete the target from the configuration collection
 
         'target' is the id of configuration to be deleted.
@@ -87,7 +87,7 @@ class ConfigurationManager():
         pass
 
 
-    def update_config(target, collection):
+    def update_config(self, target, collection):
         """Replace the object with the same id as target with target.
 
         'target' is the new version of object with targets id.
