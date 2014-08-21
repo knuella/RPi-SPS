@@ -44,7 +44,30 @@ class ConfigurationManager():
             self.reply_error(request)
 
 
-    def get_config(self, targets, collection):
+    def close(self):
+        """Called when the ConfigurationManager is stopped
+
+        either due to a KeyboardInterrupt or SIGTERM
+
+        """
+        pass
+
+
+    def create(self, target, collection):
+        """Add the target to the configuration collection
+
+        'target' is a dictionary holding new configurations
+        to be added.
+
+        'collection' can be one of "templates", "instances",
+        "localisation" and specifies which part of the configuration
+        the target should be added to.
+
+        """
+        raise NotImplementedError
+
+
+    def read(self, targets, collection):
         """Returns a list of dictionaries with configuration.
 
         'targets' is a list of dictionaries holding identifiers
@@ -57,37 +80,10 @@ class ConfigurationManager():
         should be searched.
 
         """
-        pass
+        raise NotImplementedError
 
 
-    def add_config(self, target, collection):
-        """Add the target to the configuration collection
-
-        'target' is a dictionary holding new configurations
-        to be added.
-
-        'collection' can be one of "templates", "instances",
-        "localisation" and specifies which part of the configuration
-        the target should be added to.
-
-        """
-        pass
-
-
-    def delete_config(self, target, collection):
-        """Delete the target from the configuration collection
-
-        'target' is the id of configuration to be deleted.
-
-        'collection' can be one of "templates", "instances",
-        "localisation" and specifies which part of the configuration
-        the target should be deleted from.
-
-        """
-        pass
-
-
-    def update_config(self, target, collection):
+    def update(self, target, collection):
         """Replace the object with the same id as target with target.
 
         'target' is the new version of object with targets id.
@@ -97,7 +93,22 @@ class ConfigurationManager():
         the target should be replaced in.
 
         """
-        pass
+        raise NotImplementedError
+
+
+    def delete(self, target, collection):
+        """Delete the target from the configuration collection
+
+        'target' is the id of configuration to be deleted.
+
+        'collection' can be one of "templates", "instances",
+        "localisation" and specifies which part of the configuration
+        the target should be deleted from.
+
+        """
+        raise NotImplementedError
+
+
 
 
 
