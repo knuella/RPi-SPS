@@ -140,17 +140,3 @@ class ConfigurationManager():
 
         """
         raise NotImplementedError
-
-
-
-
-
-def main():
-    config = ConfigurationManager()
-
-    while True:
-        config.handle_request()
-
-
-if __name__ == '__main__':
-    main()
