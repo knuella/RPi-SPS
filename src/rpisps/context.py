@@ -100,6 +100,10 @@ class Context():
         return m
 
 
+    def reply_error(self, dst, errormessage=None):
+        self.context.send_reply(dst, errormessage, status=1)
+
+
     def send_reply(self, dst, payload=None, **extra):
         m = Message({
             "type": "Reply",
