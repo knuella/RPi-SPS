@@ -4,7 +4,8 @@ from rpisps.context import Context as RpispsContext
 from rpisps.constants import *
 
 
-dummy_config = {}
+READ_COLLECTIONS = ("templates", "instances", "localizations")
+WRITE_COLLECTIONS = ("instances")
 
 
 class ConfigurationManager():
@@ -19,16 +20,40 @@ class ConfigurationManager():
         self.context.publish("READY")
 
 
-    def handle_request_value(self, request):
+    def extract_payload(self, request):
         try:
-            reply = dummy_config[request["from"]]
-            self.context.send_reply(request["from"], reply)
+            operation = request['payload']['operation']
+            target = request['payload']['target']
+            collection = request['payload']['collection']
         except KeyError:
-            self.reply_error(request["from"])
+            raise MessageFormatError()
+        return (operation, target, collection)
+
+
+    def handle_request_value(self, request):
+        operation, target, collection = self.extract_payload(request)
+
+        if operation != "read":
+            raise MessageFormatError()
+        if collection not in READ_COLLECTIONS:
+            raise MessageFormatError()
+        return self.read_config(target, collection)
 
 
     def handle_write_value(self, request):
-        self.reply_error(request)
+        operation, target, collection = self.extract_payload(request)
+
+        if collection not in WRITE_COLLECTIONS:
+            raise MessageFormatError()
+        if operation not in ("create", "update", "delete"):
+            raise MessageFormatError()
+
+        if "create" == operation:
+            return self.create_config(target, collection)
+        elif "update" == operation:
+            return self.update_config(target, collection)
+        elif "delete" == operation:
+            return self.delete_config(target, collection)
 
 
     def reply_error(self, dst):
@@ -38,12 +63,17 @@ class ConfigurationManager():
     def handle_request(self):
         request = self.context.recv_request()
 
-        if "RequestValue" == request["type"]:
-            self.handle_request_value(request)
-        elif "WriteValue" == request["type"]:
-            self.handle_write_value(request)
+        try:
+            if "RequestValue" == request["type"]:
+                result = self.handle_request_value(request)
+            elif "WriteValue" == request["type"]:
+                result = self.handle_write_value(request)
+            else:
+                raise MessageFormatError()
+        except (MessageFormatError, DatabaseError) as e:
+            self.context.reply_error(request["from"], e.message)
         else:
-            self.reply_error(request)
+            self.context.send_reply(request["from"], result)
 
 
     def close(self):
@@ -55,10 +85,10 @@ class ConfigurationManager():
         pass
 
 
-    def create(self, target, collection):
+    def create_config(self, target, collection):
         """Add the target to the configuration collection
 
-        'target' is a dictionary holding new configurations
+        'target' is a list of dictionaries holding new configurations
         to be added.
 
         'collection' can be one of "templates", "instances",
@@ -69,13 +99,12 @@ class ConfigurationManager():
         raise NotImplementedError
 
 
-    def read(self, targets, collection):
+    def read_config(self, target, collection):
         """Returns a list of dictionaries with configuration.
 
-        'targets' is a list of dictionaries holding identifiers
-        (object_id) for each of the requested configurations.  If the
-        list is empty all elements from the specified 'collection' are
-        retrieved.
+        'target' is a list of dictionaries holding identifiers for
+        each of the requested configurations.  If the list is empty
+        all elements from the specified 'collection' are retrieved.
 
         'collection' can be one of "templates", "instances",
         "localisation" and specifies which part of the configuration
@@ -85,10 +114,11 @@ class ConfigurationManager():
         raise NotImplementedError
 
 
-    def update(self, target, collection):
-        """Replace the object with the same id as target with target.
+    def update_config(self, target, collection):
+        """Replace the object with the same identifier as target with target.
 
-        'target' is the new version of object with targets id.
+        'target' is a list of dictionaries with each dictionary
+        containing the new version of an object.
 
         'collection' can be one of "templates", "instances",
         "localisation" and specifies which part of the configuration
@@ -98,10 +128,11 @@ class ConfigurationManager():
         raise NotImplementedError
 
 
-    def delete(self, target, collection):
+    def delete_config(self, target, collection):
         """Delete the target from the configuration collection
 
-        'target' is the id of configuration to be deleted.
+        'target' is a list of dictionaries. Each dictionary containing
+        the id of a configuration entry to be deleted.
 
         'collection' can be one of "templates", "instances",
         "localisation" and specifies which part of the configuration
