@@ -10,9 +10,12 @@ from rpisps.constants import *
 
 
 class Context():
-    def __init__(self):
+    def __init__(self, json_decoder=JSONDecoder(), json_encoder=JSONEncoder()):
         self._config = self._get_config()
         config = self._config
+
+        Message.json_decoder = json_decoder
+        Message.json_encoder = json_encoder
 
         self._context = zmq.Context.instance()
         c = self._context

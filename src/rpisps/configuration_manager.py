@@ -1,3 +1,5 @@
+from json import JSONDecoder, JSONEncoder
+
 from rpisps.context import Context as RpispsContext
 from rpisps.constants import *
 
@@ -6,8 +8,8 @@ dummy_config = {}
 
 
 class ConfigurationManager():
-    def __init__(self):
-        self.context = RpispsContext()
+    def __init__(self, json_decoder=JSONDecoder(), json_encoder=JSONEncoder()):
+        self.context = RpispsContext(json_decoder, json_encoder)
         self.context.make_source_known()
 
         self.config_ready()
