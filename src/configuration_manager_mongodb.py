@@ -32,7 +32,7 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
             object_ids.append(t["_id"])
 
         if object_ids:
-            query = { "_id" : { "$in " : object_ids } }
+            query = { "_id" : { "$in" : object_ids } }
         else:
             # get the whole collection if targets is empty
             query = {}
