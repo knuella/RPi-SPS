@@ -20,7 +20,7 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
     def create(self, targets, collection):
         t = targets[0]
         try:
-            object_id = self._db[collection].save(t)
+            object_id = self._db[collection].insert(t)
         except PyMongoError:
             raise DatabaseError()
         return [object_id]
