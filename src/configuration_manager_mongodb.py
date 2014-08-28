@@ -5,7 +5,7 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from bson.errors import InvalidId
 
-from configuration_manager import ConfigurationManager
+from rpisps.configuration_manager import ConfigurationManager
 from rpisps.exceptions import *
 
 
