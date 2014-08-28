@@ -5,17 +5,22 @@ import argparse
 
 import zmq
 
-from rpisps.message import Message
+from rpisps.message import Message, MessageDecoder, MessageEncoder
 from rpisps.constants import *
 
 
 class Context():
-    def __init__(self, json_decoder=JSONDecoder(), json_encoder=JSONEncoder()):
+    def __init__(self, decoder=None, encoder=None):
+        if decoder is None:
+            decoder = MessageDecoder()
+        if encoder is None:
+            encoder = MessageEncoder()
+
         self._config = self._get_config()
         config = self._config
 
-        Message.json_decoder = json_decoder
-        Message.json_encoder = json_encoder
+        Message.decoder = decoder
+        Message.encoder = encoder
 
         self._context = zmq.Context.instance()
         c = self._context

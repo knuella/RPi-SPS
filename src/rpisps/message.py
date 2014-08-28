@@ -1,12 +1,20 @@
 from json import JSONEncoder, JSONDecoder
 
 
+class MessageEncoder(JSONEncoder):
+    pass
+
+
+class MessageDecoder(JSONDecoder):
+    pass
+
+
 class Message(dict):
-    json_decoder = JSONDecoder()
-    json_encoder = JSONEncoder()
+    decoder = MessageDecoder()
+    encoder = MessageEncoder()
 
     def encode(self):
-        return self.json_encoder.encode(self).encode("utf-8")
+        return self.encoder.encode(self).encode("utf-8")
 
 
     @classmethod
@@ -15,7 +23,7 @@ class Message(dict):
             s.decode
         except AttributeError:
             s = cls.join_frames(s)
-        return cls(self.json_decoder.decode(s.decode("utf-8")))
+        return cls(self.decoder.decode(s.decode("utf-8")))
 
 
     @classmethod

@@ -1,7 +1,6 @@
-from json import JSONDecoder, JSONEncoder
-
 from rpisps.context import Context as RpispsContext
 from rpisps.constants import *
+from rpisps.message import MessageDecoder, MessageEncoder
 
 
 READ_COLLECTIONS = ("templates", "instances", "localizations")
@@ -9,8 +8,13 @@ WRITE_COLLECTIONS = ("instances")
 
 
 class ConfigurationManager():
-    def __init__(self, json_decoder=JSONDecoder(), json_encoder=JSONEncoder()):
-        self.context = RpispsContext(json_decoder, json_encoder)
+    def __init__(self, decoder=None, encoder=None):
+        if decoder is None:
+            decoder = MessageDecoder()
+        if encoder is None:
+            encoder = MessageEncoder()
+
+        self.context = RpispsContext(decoder, encoder)
         self.context.make_source_known()
 
         self.config_ready()
