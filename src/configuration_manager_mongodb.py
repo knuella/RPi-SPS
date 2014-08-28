@@ -29,7 +29,10 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
     def read(self, targets, collection):
         object_ids = []
         for t in targets:
-            object_ids.append(t["_id"])
+            try:
+                object_ids.append(t["_id"])
+            except KeyError:
+                raise MessageFormatError()
 
         if object_ids:
             query = { "_id" : { "$in" : object_ids } }
