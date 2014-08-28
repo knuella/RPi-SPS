@@ -56,6 +56,17 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
 
 
     def update(self, targets, collection):
-        pass
+        if len(targets) != 1:
+            raise UnsupportedOperation()
+        if "_id" not in targets[0]:
+            raise MessageFormatError()
 
+        try:
+            result = self._db[collection].update(targets[0], multi=False)
+        except PyMongoError:
+            raise DatabaseError()
 
+        if result["n"] == 0:
+            raise DatabaseError()
+        elif result["n"] > 1:
+            raise DatabaseError()
