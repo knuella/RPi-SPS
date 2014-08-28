@@ -11,5 +11,9 @@ class DatabaseError(RpispsException):
     pass
 
 
-class QueryFormatError(RpispsException):
+class MessageFormatError(RpispsException):
+    pass
+
+
+class UnsupportedOperation(RpispsException):
     pass

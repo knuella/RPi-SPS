@@ -18,9 +18,10 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
 
 
     def create(self, targets, collection):
-        t = targets[0]
+        self.sanity_check_modifying(targets)
+
         try:
-            object_id = self._db[collection].insert(t)
+            object_id = self._db[collection].insert(targets[0])
         except PyMongoError:
             raise DatabaseError()
         return [object_id]
@@ -49,6 +50,8 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
 
 
     def delete(self, targets, collection):
+        self.sanity_check_modifying(targets)
+
         try:
             self._db[collection].remove(targets[0])
         except PyMongoError:
@@ -56,10 +59,7 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
 
 
     def update(self, targets, collection):
-        if len(targets) != 1:
-            raise UnsupportedOperation()
-        if "_id" not in targets[0]:
-            raise MessageFormatError()
+        self.sanity_check_modifying(targets)
 
         try:
             result = self._db[collection].update(targets[0], multi=False)
@@ -70,3 +70,10 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
             raise DatabaseError()
         elif result["n"] > 1:
             raise DatabaseError()
+
+
+    def sanity_check_modifying(self, targets):
+        if len(targets) != 1:
+            raise UnsupportedOperation()
+        if "_id" not in targets[0]:
+            raise MessageFormatError()
