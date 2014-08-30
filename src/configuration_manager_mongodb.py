@@ -7,11 +7,53 @@ from bson.errors import InvalidId
 
 from rpisps.configuration_manager import ConfigurationManager
 from rpisps.exceptions import *
+from rpisps.message import MessageDecoder, MessageEncoder
+
+
+
+class MessageDecoderMongoDB(MessageDecoder):
+    def __init__(self):
+        super.__init__(object_hook=self.hook)
+
+
+    @staticmethod
+    def hook(o):
+        try:
+            o["_id"] = o["object_id"]
+            del o["object_id"]
+        except KeyError:
+            pass
+        return o
+
+
+class MessageEncoderMongoDB(MessageEncoder):
+    def encode(self, o):
+        self.replace_id(o)
+        return super().encode(o)
+
+
+    def default(self, o):
+        if isinstance(o, ObjectId):
+            return str(o)
+        super().default(o)
+
+
+    def replace_id(self, o):
+        try:
+            for e in o["payload"]:
+                if "_id" in e:
+                    # TODO: raise everything crashing exception
+                    pass
+                if "object_id" in e:
+                    e["_id"] = e["object_id"]
+                    del e["object_id"]
+        except TypeError:
+            pass
 
 
 class ConfigurationManagerMongoDB(ConfigurationManager):
     def __init__(self, config_db="opensps_config"):
-        super().__init__()
+        super().__init__(MessageDecoderMongoDB(), MessageEncoderMongoDB())
 
         self._db_client = MongoClient()
         self._db = self._db_client[config_db]
