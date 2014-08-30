@@ -13,7 +13,7 @@ from rpisps.message import MessageDecoder, MessageEncoder
 
 class MessageDecoderMongoDB(MessageDecoder):
     def __init__(self):
-        super.__init__(object_hook=self.hook)
+        super().__init__(object_hook=self.hook)
 
 
     @staticmethod
@@ -47,7 +47,7 @@ class MessageEncoderMongoDB(MessageEncoder):
                 if "object_id" in e:
                     e["_id"] = e["object_id"]
                     del e["object_id"]
-        except TypeError:
+        except (TypeError, KeyError):
             pass
 
 

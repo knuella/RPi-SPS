@@ -23,7 +23,7 @@ class Message(dict):
             s.decode
         except AttributeError:
             s = cls.join_frames(s)
-        return cls(self.decoder.decode(s.decode("utf-8")))
+        return cls(cls.decoder.decode(s.decode("utf-8")))
 
 
     @classmethod
