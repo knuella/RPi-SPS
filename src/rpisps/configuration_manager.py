@@ -17,7 +17,11 @@ class ConfigurationManager():
         self.context = RpispsContext(decoder, encoder)
         self.context.make_source_known()
 
+
+    def run(self):
         self.config_ready()
+        while True:
+            self.handle_request()
 
 
     def config_ready(self):

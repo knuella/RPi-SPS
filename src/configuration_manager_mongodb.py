@@ -119,3 +119,8 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
             raise UnsupportedOperation()
         if need_id and "_id" not in targets[0]:
             raise MessageFormatError()
+
+
+if __name__ == '__main__':
+    config = ConfigurationManagerMongoDB()
+    config.run()
