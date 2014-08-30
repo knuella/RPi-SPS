@@ -41,7 +41,7 @@ class ConfigurationManager():
             raise MessageFormatError()
         if collection not in READ_COLLECTIONS:
             raise MessageFormatError()
-        return self.read_config(target, collection)
+        return self.read(target, collection)
 
 
     def handle_write_value(self, request):
@@ -53,11 +53,11 @@ class ConfigurationManager():
             raise MessageFormatError()
 
         if "create" == operation:
-            return self.create_config(target, collection)
+            return self.create(target, collection)
         elif "update" == operation:
-            return self.update_config(target, collection)
+            return self.update(target, collection)
         elif "delete" == operation:
-            return self.delete_config(target, collection)
+            return self.delete(target, collection)
 
 
     def reply_error(self, dst):
@@ -89,7 +89,7 @@ class ConfigurationManager():
         pass
 
 
-    def create_config(self, target, collection):
+    def create(self, target, collection):
         """Add the target to the configuration collection
 
         'target' is a list of dictionaries holding new configurations
@@ -103,7 +103,7 @@ class ConfigurationManager():
         raise NotImplementedError
 
 
-    def read_config(self, target, collection):
+    def read(self, target, collection):
         """Returns a list of dictionaries with configuration.
 
         'target' is a list of dictionaries holding identifiers for
@@ -118,7 +118,7 @@ class ConfigurationManager():
         raise NotImplementedError
 
 
-    def update_config(self, target, collection):
+    def update(self, target, collection):
         """Replace the object with the same identifier as target with target.
 
         'target' is a list of dictionaries with each dictionary
@@ -132,7 +132,7 @@ class ConfigurationManager():
         raise NotImplementedError
 
 
-    def delete_config(self, target, collection):
+    def delete(self, target, collection):
         """Delete the target from the configuration collection
 
         'target' is a list of dictionaries. Each dictionary containing
