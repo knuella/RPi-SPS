@@ -60,7 +60,7 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
 
 
     def create(self, targets, collection):
-        self.sanity_check_modifying(targets)
+        self.sanity_check_modifying(targets, need_id=False)
 
         try:
             object_id = self._db[collection].insert(targets[0])
@@ -92,7 +92,7 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
 
 
     def delete(self, targets, collection):
-        self.sanity_check_modifying(targets)
+        self.sanity_check_modifying(targets, need_id=True)
 
         try:
             self._db[collection].remove(targets[0])
@@ -101,7 +101,7 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
 
 
     def update(self, targets, collection):
-        self.sanity_check_modifying(targets)
+        self.sanity_check_modifying(targets, need_id=True)
 
         try:
             result = self._db[collection].update(targets[0], multi=False)
@@ -114,8 +114,8 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
             raise DatabaseError()
 
 
-    def sanity_check_modifying(self, targets):
+    def sanity_check_modifying(self, targets, need_id=False):
         if len(targets) != 1:
             raise UnsupportedOperation()
-        if "_id" not in targets[0]:
+        if need_id and "_id" not in targets[0]:
             raise MessageFormatError()
