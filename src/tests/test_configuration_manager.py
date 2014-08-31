@@ -26,5 +26,38 @@ class HandleRequestValue(unittest.TestCase):
                         self.config.handle_request_value(request)
 
 
+    def test_acceptable_collection(self):
+        """Only a collection of `READ_COLLECTION` is acceptable for 'read'
+        requests."""
+        request = { "operation": "read", "collection": None }
+        invalid_collections = ["foo", "hello", "instances_"]
+        for c in invalid_collections:
+            request["collection"] = c
+            with self.subTest(collection=c):
+                with self.assertRaises(MessageFormatError):
+                    self.config.handle_request_value(request)
+
+
+    def test_read_call(self):
+        """Test weather `Configmanager.read' gets called with the expected
+        arguments."""
+        requests = [
+            {
+                "payload" : {
+                    "operation": "read",
+                    "target": {},
+                    "collection": "instances"
+                }
+            }
+        ]
+        for r in requests:
+            with self.subTest(request=r):
+                with mock.patch.object(ConfigurationManager, "read") \
+                     as read_mock:
+                    self.config.handle_request_value(r)
+                    read_mock.assert_called_with(r["payload"]["target"],
+                                                 r["payload"]["collection"])
+
+
 if __name__ == '__main__':
     unittest.main()
