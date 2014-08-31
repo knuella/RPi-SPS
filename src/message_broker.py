@@ -20,7 +20,7 @@ logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.DEBUG)
 
 def get_config():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", default="./controller.conf",
+    parser.add_argument("-c", "--config", default="./message_broker.conf",
                         help="Path to a configuration file")
     args = parser.parse_args()
 
@@ -31,7 +31,7 @@ def get_config():
     except (FileNotFoundError, PermissionError):
         sys.exit("Could not open file '{}'".format(args.config))
 
-    return config["controller"]
+    return config["message_broker"]
 
 
 class ServicesRequestsBaseThread(Thread):
@@ -41,7 +41,7 @@ class ServicesRequestsBaseThread(Thread):
         self.terminate = terminate
 
         self.router = context.socket(zmq.ROUTER)
-        self.router.setsockopt(zmq.IDENTITY, CONTROLLER_IDENTITY)
+        self.router.setsockopt(zmq.IDENTITY, BROKER_IDENTITY)
         self.router.bind(router_address)
 
         self.other_thread = context.socket(zmq.PAIR)
@@ -220,7 +220,7 @@ class ServicesThread(ServicesRequestsBaseThread):
     def reply_service_hello(self, message):
         reply = Message({
             "type": "Reply",
-            "from": "controller",
+            "from": "BROKER",
             "dst": message["from"],
             "status": SERVICE_HELLO
         })
@@ -232,7 +232,7 @@ class ServicesThread(ServicesRequestsBaseThread):
     def reply_unkown_service(self, message):
         reply = Message({
             "type": "Reply",
-            "from": "controller",
+            "from": "BROKER",
             "dst": message["from"],
             "status": SERVICE_UNKNOWN
         })
