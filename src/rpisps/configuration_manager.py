@@ -39,9 +39,7 @@ class ConfigurationManager():
         return (operation, target, collection)
 
 
-    def handle_request_value(self, request):
-        operation, target, collection = self.extract_payload(request)
-
+    def handle_request_value(self, operation, target, collection):
         if operation != "read":
             raise MessageFormatError()
         if collection not in READ_COLLECTIONS:
@@ -49,9 +47,7 @@ class ConfigurationManager():
         return self.read(target, collection)
 
 
-    def handle_write_value(self, request):
-        operation, target, collection = self.extract_payload(request)
-
+    def handle_write_value(self, operation, target, collection):
         if collection not in WRITE_COLLECTIONS:
             raise MessageFormatError()
         if operation not in ("create", "update", "delete"):
@@ -73,10 +69,14 @@ class ConfigurationManager():
         request = self.context.recv_request()
 
         try:
+            operation, target, collection = self.extract_payload(request)
+
             if "RequestValue" == request["type"]:
-                result = self.handle_request_value(request)
+                result = self.handle_request_value(operation,
+                                                   target, collection)
             elif "WriteValue" == request["type"]:
-                result = self.handle_write_value(request)
+                result = self.handle_write_value(operation,
+                                                 target, collection)
             else:
                 raise MessageFormatError()
         except (MessageFormatError, DatabaseError) as e:
