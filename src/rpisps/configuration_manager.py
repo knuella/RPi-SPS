@@ -4,7 +4,7 @@ from rpisps.message import MessageDecoder, MessageEncoder
 from rpisps.exceptions import *
 
 
-READ_COLLECTIONS = ("templates", "instances", "localizations")
+READ_COLLECTIONS = ("templates", "instances", "localisation")
 WRITE_COLLECTIONS = ("instances")
 
 
