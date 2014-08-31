@@ -1,6 +1,7 @@
 from rpisps.context import Context as RpispsContext
 from rpisps.constants import *
 from rpisps.message import MessageDecoder, MessageEncoder
+from rpisps.exceptions import *
 
 
 READ_COLLECTIONS = ("templates", "instances", "localizations")
