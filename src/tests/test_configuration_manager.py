@@ -134,5 +134,67 @@ class HandleWriteValue(unittest.TestCase):
                                                r["collection"])
 
 
+class ExtractPayload(unittest.TestCase):
+    @mock.patch("rpisps.configuration_manager.RpispsContext")
+    def setUp(self, mock_context):
+        self.config = ConfigurationManager()
+
+
+    def test_missing_operation(self):
+        """A Payload without a "operation" key raises a MessageFormatError."""
+        request = {
+            "payload": {
+                "target": {},
+                "collection": "instances"
+            }
+        }
+        with self.assertRaises(MessageFormatError):
+            self.config.extract_payload(request)
+
+
+    def test_missing_target(self):
+        """A Payload without a "target" key raises a MessageFormatError."""
+        request = {
+            "payload": {
+                "operation": "read",
+                "collection": "instances"
+            }
+        }
+        with self.assertRaises(MessageFormatError):
+            self.config.extract_payload(request)
+
+
+    def test_missing_collection(self):
+        """A Payload without a "collection" key raises a MessageFormatError."""
+        request = {
+            "payload": {
+                "operation": "read",
+                "target": {},
+            }
+        }
+        with self.assertRaises(MessageFormatError):
+            self.config.extract_payload(request)
+
+
+    def test_return_value(self):
+        """'ConfigurationManager.extract_payload returns a tuple with the
+        elements (operation, target, collection)."""
+        request = {
+            "payload": {
+                "operation": "read",
+                "target": {},
+                "collection": "instances"
+            }
+        }
+        result = self.config.extract_payload(request)
+        payload = request["payload"]
+        expected = (payload["operation"], payload["target"],
+                    payload["collection"])
+        self.assertEqual(result, expected)
+
+
+
+
+
 if __name__ == '__main__':
     unittest.main()
