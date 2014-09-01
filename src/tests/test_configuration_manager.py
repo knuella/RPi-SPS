@@ -193,7 +193,59 @@ class ExtractPayload(unittest.TestCase):
         self.assertEqual(result, expected)
 
 
+class HandleRequest(unittest.TestCase):
+    VALID_REQUEST_VALUE = [
+        {
+            "type": "RequestValue",
+            "from": "somewhere",
+            "payload": {
+                "operation": "read",
+                "target": {},
+                "collection": "instances"
+            }
+        }
+    ]
+    VALID_WRITE_VALUE = [
+        {
+            "type": "WriteValue",
+            "from": "somewhere",
+            "payload": {
+                "operation": "create",
+                "target": {},
+                "collection": "instances"
+            }
+        }
+    ]
+    VALID_REQUESTS = VALID_REQUEST_VALUE + VALID_WRITE_VALUE
 
+
+    @mock.patch("rpisps.configuration_manager.RpispsContext")
+    def setUp(self, mock_context):
+        self.config = ConfigurationManager()
+
+
+    @mock.patch.object(ConfigurationManager, "handle_request_value")
+    def test_handle_request_value_call(self, mock):
+        """Requests of type 'RequestValue' call handle_request_value with the
+        correct arguments"""
+        for r in self.VALID_REQUEST_VALUE:
+            operation = r["payload"]["operation"]
+            target = r["payload"]["target"]
+            collection = r["payload"]["collection"]
+            self.config.handle_request(r)
+            mock.assert_called_once_with(operation, target, collection)
+
+
+    @mock.patch.object(ConfigurationManager, "handle_write_value")
+    def test_handle_write_value_call(self, mock):
+        """Requests of type 'WriteValue' call handle_write_value with the
+        correct arguments"""
+        for r in self.VALID_WRITE_VALUE:
+            operation = r["payload"]["operation"]
+            target = r["payload"]["target"]
+            collection = r["payload"]["collection"]
+            self.config.handle_request(r)
+            mock.assert_called_once_with(operation, target, collection)
 
 
 if __name__ == '__main__':
