@@ -22,7 +22,8 @@ class ConfigurationManager():
     def run(self):
         self.config_ready()
         while True:
-            self.handle_request()
+            r = self.context.recv_request()
+            self.handle_request(r)
 
 
     def config_ready(self):
@@ -65,9 +66,7 @@ class ConfigurationManager():
         self.context.send_reply(dst, status=1)
 
 
-    def handle_request(self):
-        request = self.context.recv_request()
-
+    def handle_request(self, request):
         try:
             operation, target, collection = self.extract_payload(request)
 
