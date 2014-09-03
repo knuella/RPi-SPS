@@ -1,0 +1,13 @@
+{
+	"Fielddevice":
+	{
+		"Fielddevice_Type": "",
+		"Fielddevice_Category":"",
+		"Fielddevice_Description": "",
+		"Safety_Value": 0,
+		"Active_Text": "",
+		"Inactive_Text": "",
+		"Inverted":"",
+			"Clamp-Address":""
+	}
+}

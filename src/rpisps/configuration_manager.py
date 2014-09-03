@@ -5,7 +5,7 @@ from rpisps.exceptions import *
 
 
 READ_COLLECTIONS = ("templates", "instances", "localisation")
-WRITE_COLLECTIONS = ("instances")
+WRITE_COLLECTIONS = ("templates", "instances")
 
 
 class ConfigurationManager():
@@ -62,8 +62,8 @@ class ConfigurationManager():
             return self.delete(target, collection)
 
 
-    def reply_error(self, dst):
-        self.context.send_reply(dst, status=1)
+    def reply_error(self, dst, errormessage=None):
+        self.context.send_reply(dst, errormessage, status=1)
 
 
     def handle_request(self, request):
@@ -79,7 +79,7 @@ class ConfigurationManager():
             else:
                 raise MessageFormatError()
         except (MessageFormatError, DatabaseError) as e:
-            self.context.reply_error(request["from"], e.message)
+            self.reply_error(request["from"], e.message)
         else:
             self.context.send_reply(request["from"], result)
 
