@@ -45,13 +45,12 @@ class MessageEncoderMongoDB(MessageEncoder):
 
     def replace_id(self, o):
         try:
-            for e in o["payload"]:
-                if "object_id" in e:
-                    # TODO: raise everything crashing exception
-                    pass
-                if "_id" in e:
-                    e["object_id"] = e["_id"]
-                    del e["_id"]
+            for part in o["payload"]:
+                if "object_id" in part:
+                    raise DatabaseError()
+                if "_id" in part:
+                    part["object_id"] = part["_id"]
+                    del part["_id"]
         except (TypeError, KeyError):
             pass
 
