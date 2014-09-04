@@ -25,12 +25,14 @@ class TemplateManager():
                                               'collection': 'templates'})
         if rpl['status'] != 0:
             raise RpispsException(rpl['payload']) 
-        
-        for item in rpl['payload']:
-            file_data = item['file_data']
-            file_data['meta']['object_id'] = item['object_id']
+        try:
+            for item in rpl['payload']:
+                file_data = item['file_data']
+                file_data['meta']['object_id'] = item['object_id']
             
-            self.template_dict[file_data['file_name']] = file_data['meta']
+                self.template_dict[file_data['file_name']] = file_data['meta']
+        except KeyError:
+            pass
 
 
     def run(self):
