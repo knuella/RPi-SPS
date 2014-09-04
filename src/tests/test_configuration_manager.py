@@ -268,5 +268,62 @@ class HandleRequest(unittest.TestCase):
                                                               "read_mock_test")
 
 
+    @mock.patch.object(ConfigurationManager, "handle_request_value")
+    def test_reply_error_request_value_database_error(self, request_value_mock):
+        """'reply_error' is called with the correct arguments when a
+        DatabaseError occurs in handle_request_value"""
+        request_value_mock.side_effect = MessageFormatError("read_mock_test")
+        request = {
+            "type": "RequestValue",
+            "from": "somewhere",
+            "payload": {
+                "operation": "read",
+                "target": {},
+                "collection": "instances"
+            }
+        }
+        self.config.handle_request(request)
+        self.context_mock.reply_error.assert_called_once_with(request["from"],
+                                                              "read_mock_test")
+
+
+    @mock.patch.object(ConfigurationManager, "handle_write_value")
+    def test_reply_error_write_value_message_error(self, request_value_mock):
+        """'reply_error' is called with the correct arguments when a
+        MessageFormatError occurs in handle_write_value"""
+        request_value_mock.side_effect = MessageFormatError("write_mock_test")
+        request = {
+            "type": "WriteValue",
+            "from": "somewhere",
+            "payload": {
+                "operation": "create",
+                "target": {},
+                "collection": "instances"
+            }
+        }
+        self.config.handle_request(request)
+        self.context_mock.reply_error.assert_called_once_with(request["from"],
+                                                              "write_mock_test")
+
+
+    @mock.patch.object(ConfigurationManager, "handle_write_value")
+    def test_reply_error_write_value_database_error(self, request_value_mock):
+        """'reply_error' is called with the correct arguments when a
+        MessageFormatError occurs in handle_write_value"""
+        request_value_mock.side_effect = DatabaseError("write_mock_test")
+        request = {
+            "type": "WriteValue",
+            "from": "somewhere",
+            "payload": {
+                "operation": "create",
+                "target": {},
+                "collection": "instances"
+            }
+        }
+        self.config.handle_request(request)
+        self.context_mock.reply_error.assert_called_once_with(request["from"],
+                                                              "write_mock_test")
+
+
 if __name__ == '__main__':
     unittest.main()
