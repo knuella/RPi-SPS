@@ -2,6 +2,7 @@
 
 import pymongo
 from pymongo import MongoClient
+from pymongo.cursor import Cursor
 from bson.objectid import ObjectId
 from bson.errors import InvalidId
 
@@ -37,6 +38,8 @@ class MessageEncoderMongoDB(MessageEncoder):
     def default(self, o):
         if isinstance(o, ObjectId):
             return str(o)
+        if isinstance(o, Cursor):
+            return list(o)
         super().default(o)
 
 
