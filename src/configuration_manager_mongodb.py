@@ -19,10 +19,12 @@ class MessageDecoderMongoDB(MessageDecoder):
     @staticmethod
     def hook(o):
         try:
-            o["_id"] = o["object_id"]
+            o["_id"] = ObjectId(o["object_id"])
             del o["object_id"]
         except KeyError:
             pass
+        except InvalidId:
+            raise MessageFormatError() from None
         return o
 
 
