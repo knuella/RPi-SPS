@@ -38,8 +38,6 @@ class MessageEncoderMongoDB(MessageEncoder):
     def default(self, o):
         if isinstance(o, ObjectId):
             return str(o)
-        if isinstance(o, Cursor):
-            return list(o)
         super().default(o)
 
 
@@ -92,7 +90,7 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
         except PyMongoError:
             raise DatabaseError()
 
-        return result
+        return list(result)
 
 
     def delete(self, targets, collection):
