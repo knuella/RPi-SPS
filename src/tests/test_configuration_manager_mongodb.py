@@ -44,5 +44,33 @@ class MessageDecoder(unittest.TestCase):
             self.assertNotIn("object_id", d)
 
 
+class MessageEncoder(unittest.TestCase):
+    def setUp(self):
+        self.encoder = MessageEncoderMongoDB()
+
+
+    def test_replace_id(self):
+        """replace_id produces the expected modifications to a payload"""
+        input_expected = [
+            (
+                [{"_id": "5408bace9b89e72028926374",
+                  "some_key": "test" }],
+                [{"object_id": "5408bace9b89e72028926374",
+                  "some_key": "test" }],
+            ),
+            (
+                [{"_id": "someid"}, {"_id": "anotherid",
+                                     "some_key": "value"}],
+                [{"object_id": "someid"}, {"object_id": "anotherid",
+                                           "some_key": "value"}]
+            )
+        ]
+
+        for inp, exp in input_expected:
+            d = {"payload": inp}
+            self.encoder.replace_id(d)
+            self.assertEqual(inp, exp)
+
+
 if __name__ == '__main__':
     unittest.main()
