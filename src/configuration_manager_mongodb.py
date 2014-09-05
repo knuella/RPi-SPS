@@ -19,6 +19,10 @@ class MessageDecoderMongoDB(MessageDecoder):
 
     @staticmethod
     def hook(o):
+        """
+        In every json object rename the key "object_id" to "_id" and
+        convert it to an 'ObjectId'
+        """
         try:
             o["_id"] = ObjectId(o["object_id"])
             del o["object_id"]
@@ -42,6 +46,9 @@ class MessageEncoderMongoDB(MessageEncoder):
 
 
     def replace_id(self, o):
+        """
+        Replace ever "_id" key with "object_id" in the payload of a message
+        """
         try:
             for part in o["payload"]:
                 if "object_id" in part:
@@ -117,6 +124,15 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
 
 
     def sanity_check_modifying(self, targets, need_id=False):
+        """
+        Raise a UnsupportedOperation exception if 'targets' contains more than
+        one element.
+
+        If 'need_id' is True raises a MessageFormatError if the key "_id" is
+        not in the first target.
+        """
+        # necessary, because mongo has no built-in support for
+        # transaction commits
         if len(targets) != 1:
             raise UnsupportedOperation()
         if need_id and "_id" not in targets[0]:
