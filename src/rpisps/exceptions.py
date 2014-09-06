@@ -2,8 +2,8 @@
 
 
 class RpispsException(Exception):
-    def __init__(self, message="Unspecified Error"):
-        super().__init__()
+    def __init__(self, message="Unspecified Error", *args):
+        super().__init__(args)
         self.message = message
 
 
