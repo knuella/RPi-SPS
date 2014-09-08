@@ -10,7 +10,41 @@ from rpisps.constants import *
 
 
 class Context():
+    """
+    The Context class provides methods for communicating with other
+    RpiSPS components.  Upon instantiation the Context reads the
+    necessary configuration from the commandline.
+
+    >>> import sys
+    >>> from rpisps.context import Context
+    >>> sys.argv = ['executable', 'identifier', 'tcp://127.0.0.10:6666',\
+    'tcp://127.0.0.10:6665', 'tcp://127.0.0.10:5556', 'tcp://127.0.0.10:5555']
+    >>> c = Context()
+
+    When a command-line parameter is missing a SystemExit exception is
+    raised.
+
+    >>> sys.argv = ['executable']
+    >>> c = Context()
+    Traceback (most recent call last):
+    ...
+    SystemExit: 2
+
+    The necessary parameters are:
+
+        - identifier
+        - service_address
+        - request_address
+        - new_values_address
+        - submit_values_address
+    """
+
     def __init__(self, decoder=None, encoder=None):
+        """
+        Args:
+            decoder: MessageDecoder used to decode incoming messages
+            encoder: MessageEncoder used to encode outgoing messages
+        """
         if decoder is None:
             decoder = MessageDecoder()
         if encoder is None:
@@ -53,6 +87,10 @@ class Context():
 
 
     def publish(self, payload):
+        """
+        Args:
+            payload: The value to send to everyone who is interested.
+        """
         m = Message({
             "from": self._config.name,
             "timestamp": time.time(),
@@ -66,6 +104,12 @@ class Context():
 
 
     def request_value(self, name, payload=None):
+        """
+        Args:
+            name (str): The identifier for the destination of the request.
+            payload: Extra parameters the destination requires
+                for the request.
+        """
         m = Message({
             "type": "RequestValue",
             "dst": name,
@@ -81,6 +125,11 @@ class Context():
 
 
     def write_value(self, name, value):
+        """
+        Args:
+            name (str): The identifier for the destination of the request.
+            value: Some value the destination expects
+        """
         m = Message({
             "type": "WriteValue",
             "dst": name,
@@ -94,12 +143,24 @@ class Context():
 
 
     def recv_updates(self):
+        """
+        Receive a new broadcasted message
+
+        If there are no new messages the call blocks until one can be
+        received.
+        """
         raw = self._new_values.recv_multipart()
         m = Message.decode(b''.join(raw[1:]))
         return m
 
 
     def recv_request(self):
+        """
+        Receive a request directed to this Context.
+
+        If there are no new requests the call blocks until one can be
+        received.
+        """
         raw = self._services.recv_multipart()
         m = Message.decode(raw[2])
         return m
@@ -110,6 +171,19 @@ class Context():
 
 
     def send_reply(self, dst, payload=None, **extra):
+        """
+        Send a reply to 'dst' containing 'payload'.
+
+        Args:
+            dst (str): Identifier for the destination.
+            payload: What is to be send to the destination
+
+        Kwargs:
+            status (int): Status code, indicating a successful request or
+                an error (default: 0)
+            timestamp (float): A timestamp for the message
+                (default: time.time())
+        """
         m = Message({
             "type": "Reply",
             "timestamp": extra.get("timestamp", time.time()),
@@ -128,16 +202,31 @@ class Context():
 
 
     def set_subscriptions(self, names):
+        """
+        Args:
+            names: List of identifiers from which published values should be
+                received.
+        """
         for n in names:
             self._new_values.set_string(zmq.SUBSCRIBE, n)
 
 
     def remove_subscriptions(self, names):
+        """
+        Args:
+            names: List of identifiers from which published values should not be
+                received anymore.
+        """
         for n in names:
             self._new_values.set_string(zmq.UNSUBSCRIBE, n)
 
 
     def make_source_known(self):
+        """
+        Sends a initial ping to the message_broker,
+
+        so that it knows where to route requests to.
+        """
         poller = zmq.Poller()
         poller.register(self._services, flags=zmq.POLLIN)
         reply_received = False

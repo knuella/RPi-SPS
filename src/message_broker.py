@@ -19,6 +19,14 @@ from rpisps.message import Message
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.DEBUG)
 
 def get_config():
+    """
+    Return the configuration relevant for the message broker
+
+    The configuration is read from file supplied on the commandline or a default
+    file.
+
+    Configuration parameters can be accessed via config[parameter].
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", default="./message_broker.conf",
                         help="Path to a configuration file")
@@ -35,7 +43,24 @@ def get_config():
 
 
 class ServicesRequestsBaseThread(Thread):
+    """
+    ServicesRequestsBaseThread collects the common methods for the
+    RequestsThread and ServicesThread it is not meant to be used on
+    its own.
+    """
     def __init__(self, context, terminate, router_address, **kwargs):
+        """
+        Sets up a router socket and a connection to the other thread
+        (either ServicesThread or RequestsThread).
+
+        Args:
+            context: a zmq context instance
+            terminate: a Threading.Event instance that gets set to signal
+                the thread to terminate.  It is set inside the thread when
+                it receives a KeyboardInterrupt or SystemExit exception.
+            router_address (str): The address the router socket binds to,
+                in a format zmq expects.
+        """
         super().__init__(**kwargs)
 
         self.terminate = terminate
@@ -46,8 +71,13 @@ class ServicesRequestsBaseThread(Thread):
 
         self.other_thread = context.socket(zmq.PAIR)
         try:
+            # see if it is possible for this thread to bind to the
+            # address used for communication with the other
             self.other_thread.bind("inproc://services_requests")
         except zmq.error.ZMQError as e:
+            # if the thread cannot bind to the address because it is
+            # in use assume that the other thread was started first
+            # and try to connect to it
             if e.errno == zmq.EADDRINUSE:
                 self.other_thread.connect("inproc://services_requests")
             else:
@@ -73,26 +103,52 @@ class ServicesRequestsBaseThread(Thread):
 
 
     def handle_request(self):
+        """
+        Called when can_handle_request returns True.
+        """
         raise NotImplementedError
 
 
     def handle_reply(self):
+        """
+        Called when can_handle_reply returns True.
+        """
         raise NotImplementedError
 
 
     def can_handle_request(self, poll_result):
+        """
+        Test whether the handle_request method can be called.
+
+        Args:
+            poll_result: The result of a call to self.poller.poll.
+        """
         raise NotImplementedError
 
 
     def can_handle_reply(self, poll_result):
-        raise NotImplementedError
+        """
+        Test whether the handle_reply method can be called.
 
+        Args:
+            poll_result: The result of a call to self.poller.poll.
 
-    def can_handle_reply(self, poll_result):
+        Returns:
+            True when handle_reply can be called otherwise False.
+        """
         raise NotImplementedError
 
 
     def can_pass_to_router(self, poll_result):
+        """
+        Test weather a message is ready to be passed to self.router.
+
+        The method is used in ServicesThread and RequestsThread as
+        implementation of can_handle_reply and can_handle_request respectivly.
+
+        Args:
+            poll_result: The result of a call to self.poller.poll.
+        """
         for s, result in poll_result:
             if s is self.other_thread:
                 router_result = self.router.poll(timeout=0, flags=zmq.POLLOUT)
@@ -102,6 +158,15 @@ class ServicesRequestsBaseThread(Thread):
 
 
     def can_pass_to_other(self, poll_result):
+        """
+        Test weather a message is ready to be passed to self.other.
+
+        The method is used in ServicesThread and RequestsThread as
+        implementation of can_handle_reply and can_handle_request respectivly.
+
+        Args:
+            poll_result: The result of a call to self.poller.poll.
+        """
         for s, result in poll_result:
             if s is self.router:
                 other_result = self.other_thread.poll(timeout=0, flags=zmq.POLLOUT)
@@ -111,6 +176,9 @@ class ServicesRequestsBaseThread(Thread):
 
 
     def get_socket_result(self, socket, poll_result):
+        """
+        Return the 'poll_result' for 'socket'.
+        """
         for s, r in poll_result:
             if s is socket:
                 return r
@@ -122,6 +190,7 @@ class RequestsThread(ServicesRequestsBaseThread):
     def __init__(self, context, terminate, requests_address, **kwargs):
         super().__init__(context, terminate, requests_address, **kwargs)
 
+        # some aliases
         self.services = self.other_thread
         self.requests = self.router
 
@@ -138,6 +207,8 @@ class RequestsThread(ServicesRequestsBaseThread):
                       self.__class__.__name__, message)
 
         if self.is_valid_request(message):
+            # store the identity so that the reply will later be able
+            # to be send to the correct destination.
             self.pending_requests[message["from"]] = identity
             self.services.send(message.encode())
         else:
@@ -164,6 +235,7 @@ class RequestsThread(ServicesRequestsBaseThread):
 
 
     def reply_invalid_request(identity, message):
+        # TODO: send an invalid requst message to the identity
         raise NotImplementedError
 
 
@@ -195,7 +267,7 @@ class ServicesThread(ServicesRequestsBaseThread):
                       self.__class__.__name__, message)
         if message["dst"] not in self.services_ready:
             # TODO: cache request for timeout time
-            self.reply_unkown_service(message)
+            self.reply_unknown_service(message)
         else:
             dst_identity = self.services_ready[message["dst"]]
             request = Message.create_router_message(dst_identity, message)
@@ -218,6 +290,7 @@ class ServicesThread(ServicesRequestsBaseThread):
 
 
     def reply_service_hello(self, message):
+        """Send a pong to the server"""
         reply = Message({
             "type": "Reply",
             "from": "BROKER",
@@ -248,6 +321,17 @@ class ServicesThread(ServicesRequestsBaseThread):
 class PropagateValueUpdates(Thread):
     def __init__(self, context, terminate, pub_address, submit_values_address,
                  **kwargs):
+        """
+        Args:
+            context: a zmq context instance
+            terminate: a Threading.Event instance that gets set to signal
+                the thread to terminate.  It is set inside the thread when
+                it receives a KeyboardInterrupt or SystemExit exception.
+            pub_address (str): The address the PUB socket binds to,
+                in a format zmq expects.
+            submit_values_address: the address of the PULL socket binds to,
+                in a format zmq expects
+        """
         super().__init__(**kwargs)
 
         self.terminate = terminate
