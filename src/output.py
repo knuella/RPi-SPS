@@ -6,7 +6,7 @@ from rpisps.exceptions import *
 from exclusive_writebal import *
 
 
-class Output:
+class OutputDP:
     """ 
     This is a Controleprogramm to change something outside of the computer and
     connect it over the sockets.
@@ -29,8 +29,8 @@ class Output:
                 'operation': 'write_value', 
                 'params': {'value': 1}
             }, 
-        'from': 'test_context2', 
-        'dst': 'dp', 
+        'from': 'test_context', 
+        'dst': 'output', 
         'type': 'WriteValue'
     }
 
@@ -41,7 +41,7 @@ class Output:
             set an other one. This shoult bring no threat, when writed to
             the hardware.
         actual_value (ExclusiveWritebal): 
-            The value, whitch will be written to the hardware.
+            The value, witch will be written to the hardware.
         state (string): 
             The state of the connection to outside.
     """
@@ -94,6 +94,7 @@ class Output:
             self.reply_error(request["from"], e.message)
         else:
             self.context.send_reply(request["from"], result)
+
 
     def extract_payload(self, request):
         try:
@@ -178,11 +179,11 @@ class Output:
                                     hardware-type.
         """
         self._actual_value.set_value(value, req_programm)
-        self.write_physical_value()
+        self.write_outside_value()
         return self.return_all()
 
 
-    def write_physical_value(self):    
+    def write_outside_value(self):    
         """ Sets "state" to "Hardware Error", if value can't be written.
         """
         print("actual_value = " + str(self._actual_value.get_value()))
