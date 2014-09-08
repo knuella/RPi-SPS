@@ -155,7 +155,7 @@ class RequestsThread(ServicesRequestsBaseThread):
             dst_identity = self.pending_requests[message["dst"]]
             reply = Message.create_router_message(dst_identity, message)
             self.requests.send_multipart(reply)
-        # TODO: dropping replies to unkown dst silently for now
+        # TODO: dropping replies to unknown dst silently for now
 
 
     can_handle_reply = ServicesRequestsBaseThread.can_pass_to_router
@@ -168,7 +168,7 @@ class RequestsThread(ServicesRequestsBaseThread):
 
 
     def is_valid_request(self, message):
-        # should do some sanity checking on request messages
+        # TODO: should do some sanity checking on request messages
         return True
 
 
@@ -229,7 +229,7 @@ class ServicesThread(ServicesRequestsBaseThread):
         self.services.send_multipart(raw_reply)
 
 
-    def reply_unkown_service(self, message):
+    def reply_unknown_service(self, message):
         reply = Message({
             "type": "Reply",
             "from": "BROKER",
