@@ -17,3 +17,11 @@ class MessageFormatError(RpispsException):
 
 class UnsupportedOperation(RpispsException):
     pass
+
+
+class NoConnectionError(RpispsException):
+    pass
+
+
+class ExclusiveBlockError(RpispsException):
+    pass

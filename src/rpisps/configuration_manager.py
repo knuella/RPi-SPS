@@ -20,13 +20,13 @@ class ConfigurationManager():
 
 
     def run(self):
-        self.config_ready()
+        self.ready()
         while True:
             r = self.context.recv_request()
             self.handle_request(r)
 
 
-    def config_ready(self):
+    def ready(self):
         self.context.publish("READY")
 
 

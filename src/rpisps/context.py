@@ -117,7 +117,7 @@ class Context():
             "from": self._config.name,
             "dst": dst,
         })
-        if payload:
+        if payload != None:
             m["payload"] = payload
 
         self._services.send_multipart([
