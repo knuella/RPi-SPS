@@ -1,4 +1,5 @@
 import sys
+import time
 
 from rpisps.context import Context as RpispsContext
 from rpisps.constants import *
@@ -43,7 +44,7 @@ class InputDP:
         self.context.make_source_known()
 
         self._state = "don't know"
-        self._actual_value = self.read_value()
+        self.read_outside_value()
 
 
     def run(self):
@@ -123,10 +124,15 @@ class InputDP:
                }
 
 
+    def publish_value(self):
+        self.context.publish(self.return_all)
+
+
     def read_outside_value(self):    
         """ Sets "state" to "Hardware Error", if value can't be read.
         """
         self._state = "good"
+        self._actual_value = 5
         #raise NotImplementedError() 
 
 
@@ -134,8 +140,7 @@ class InputDP:
 
 def main():
     dp = InputDP()
-    while True:
-        dp.run()
+    dp.run()
 
 
 if __name__ == '__main__':
