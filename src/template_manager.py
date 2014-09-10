@@ -5,7 +5,7 @@ from rpisps.exceptions import *
 
 from template_dict import *
 
-templatepath = 'apps/templates'
+templatepath = '../../apps/templates'
 cm = 'cm'
 
 class TemplateManager():
