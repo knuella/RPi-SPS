@@ -2,6 +2,7 @@
 
 import pymongo
 from pymongo import MongoClient
+from pymongo.cursor import Cursor
 from bson.objectid import ObjectId
 from bson.errors import InvalidId
 
@@ -18,11 +19,18 @@ class MessageDecoderMongoDB(MessageDecoder):
 
     @staticmethod
     def hook(o):
+        """
+        In every json object rename the key "object_id" to "_id" and
+        convert it to an 'ObjectId'
+        """
         try:
-            o["_id"] = o["object_id"]
+            o["_id"] = ObjectId(o["object_id"])
             del o["object_id"]
         except KeyError:
             pass
+        except InvalidId:
+            raise MessageFormatError('"object_id" is not a valid id'
+                                     , o) from None
         return o
 
 
@@ -39,14 +47,18 @@ class MessageEncoderMongoDB(MessageEncoder):
 
 
     def replace_id(self, o):
+        """
+        Replace ever "_id" key with "object_id" in the payload of a message
+        """
         try:
-            for e in o["payload"]:
-                if "_id" in e:
-                    # TODO: raise everything crashing exception
-                    pass
-                if "object_id" in e:
-                    e["_id"] = e["object_id"]
-                    del e["object_id"]
+            for part in o["payload"]:
+                if "object_id" in part:
+                    raise DatabaseError(
+                        'There should not be an "object_id" field in a message',
+                        o)
+                if "_id" in part:
+                    part["object_id"] = part["_id"]
+                    del part["_id"]
         except (TypeError, KeyError):
             pass
 
@@ -65,7 +77,8 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
         try:
             object_id = self._db[collection].insert(targets[0])
         except PyMongoError:
-            raise DatabaseError()
+            # TODO: be more specific
+            raise DatabaseError("Error creating new document", targets[0])
         return [object_id]
 
 
@@ -75,7 +88,7 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
             try:
                 object_ids.append(t["_id"])
             except KeyError:
-                raise MessageFormatError()
+                raise MessageFormatError('Missing required id key', t)
 
         if object_ids:
             query = { "_id" : { "$in" : object_ids } }
@@ -86,9 +99,9 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
         try:
             result = self._db[collection].find(query)
         except PyMongoError:
-            raise DatabaseError()
+            raise DatabaseError('Error retrieving from the Database')
 
-        return result
+        return list(result)
 
 
     def delete(self, targets, collection):
@@ -97,7 +110,7 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
         try:
             self._db[collection].remove(targets[0])
         except PyMongoError:
-            raise DatabaseError()
+            raise DatabaseError('Error deleting object', targets[0])
 
 
     def update(self, targets, collection):
@@ -106,19 +119,28 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
         try:
             result = self._db[collection].update(targets[0], multi=False)
         except PyMongoError:
-            raise DatabaseError()
+            raise DatabaseError('Error updating object', targets[0])
 
         if result["n"] == 0:
-            raise DatabaseError()
+            raise DatabaseError('Object to update did not exist', targets)
         elif result["n"] > 1:
-            raise DatabaseError()
+            raise DatabaseError('Deleted more than one entry', targets)
 
 
     def sanity_check_modifying(self, targets, need_id=False):
+        """
+        Raise a UnsupportedOperation exception if 'targets' contains more than
+        one element.
+
+        If 'need_id' is True raises a MessageFormatError if the key "_id" is
+        not in the first target.
+        """
+        # necessary, because mongo has no built-in support for
+        # transaction commits
         if len(targets) != 1:
-            raise UnsupportedOperation()
+            raise UnsupportedOperation('Can only modify one entry at a time', targets)
         if need_id and "_id" not in targets[0]:
-            raise MessageFormatError()
+            raise MessageFormatError('Missing required id key', targets[0])
 
 
 if __name__ == '__main__':

@@ -21,7 +21,7 @@ class TemplateManager():
 
     def load_template_list(self):
         rpl = self.context.request_value(cm, {'operation': 'read', 
-                                              'target': {},
+                                              'targets': [],
                                               'collection': 'templates'})
         if rpl['status'] != 0:
             raise RpispsException(rpl['payload']) 
@@ -114,7 +114,7 @@ class TemplateManager():
                                                  'collection': 'templates'})
             if rpl['status'] != 0:
                 raise RpispsException(rpl['payload']) 
-            file_data['meta']['object_id'] = rpl['payload']
+            file_data['meta']['object_id'] = rpl['payload'][0]
             
             self.template_dict[file_data['file_name']] = file_data['meta']
         return 'equalize not-listed-files with DB'
@@ -128,7 +128,7 @@ class TemplateManager():
             item['object_id'] = item['file_data']['object_id']
             del item['file_data']['object_id']
             rpl = self.context.write_value(cm, {'operation': 'update', 
-                                                'targets': item,
+                                                'targets': [item],
                                                 'collection': 'templates'})
             if rpl['status'] != 0:
                 raise RpispsException(rpl['payload']) 
@@ -143,7 +143,7 @@ class TemplateManager():
             file_data = item['file_data']
 
             self.context.write_value(cm, {'operation': 'delete', 
-                                          'targets': item['object_id'],
+                                          'targets': [item['object_id']],
                                           'collection': 'templates'})
             if rpl['status'] != 0:
                 raise RpispsException(rpl['payload']) 
