@@ -110,7 +110,7 @@ class TemplateManager():
             file_data = item['file_data']
             
             rpl = self.context.write_value(cm, {'operation': 'create', 
-                                                 'target': [item],
+                                                 'targets': [item],
                                                  'collection': 'templates'})
             if rpl['status'] != 0:
                 raise RpispsException(rpl['payload']) 
