@@ -88,11 +88,15 @@ class ConfigurationManager():
             MessageFormatError: When the operation is not "read" or
                 the collection is not part of READ_COLLECTIONS.
         """
-        if operation != "read":
+        if operation not in ("read", "raw_read"):
             raise MessageFormatError()
         if collection not in READ_COLLECTIONS:
             raise MessageFormatError()
-        return self.read(target, collection)
+
+        if "read" == operation:
+            return self.read(target, collection)
+        elif "raw_read" == operation:
+            return self.raw_read(target, collection)
 
 
     def handle_write_value(self, operation, target, collection):
@@ -118,15 +122,11 @@ class ConfigurationManager():
         """
         if collection not in WRITE_COLLECTIONS:
             raise MessageFormatError()
-        if operation not in ("create", "update", "delete"):
+        if operation not in ("create", "update", "delete",
+                             "raw_create", "raw_update", "raw_delete"):
             raise MessageFormatError()
 
-        if "create" == operation:
-            return self.create(target, collection)
-        elif "update" == operation:
-            return self.update(target, collection)
-        elif "delete" == operation:
-            return self.delete(target, collection)
+        return getattr(self, operation)(target, collection)
 
 
     def reply_error(self, dst):
