@@ -247,3 +247,35 @@ class ConfigurationManager():
                 than one target at a time.
         """
         raise NotImplementedError
+
+
+    # The raw_* variants of the normal CRUD methods are more a
+    # work-around than an actual feature.  Cases that require the use
+    # of these methods should be abstracted and put in the normal
+    # methods.
+    def raw_create(self, raw_request, collection):
+        """
+        The exact usage of 'raw_request' depends on the used backend.
+        """
+        raise UnsupportedOperation("The backend has not implemented raw_create")
+
+
+    def raw_read(self, raw_request, collection):
+        """
+        The exact usage of 'raw_request' depends on the used backend.
+        """
+        raise UnsupportedOperation("The backend has not implemented raw_read")
+
+
+    def raw_update(self, raw_request, collection):
+        """
+        The exact usage of 'raw_request' depends on the used backend.
+        """
+        raise UnsupportedOperation("The backend has not implemented raw_update")
+
+
+    def raw_delete(self, raw_request, collection):
+        """
+        The exact usage of 'raw_request' depends on the used backend.
+        """
+        raise UnsupportedOperation("The backend has not implemented raw_delete")
