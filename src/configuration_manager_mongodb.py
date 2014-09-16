@@ -143,6 +143,50 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
             raise MessageFormatError('Missing required id key', targets[0])
 
 
+    def raw_read(self, raw_request, collection):
+        """
+        Return a list of dictionaries with configuration.
+
+        Args:
+            raw_request: A dictionary that is passed unpacked to
+                pymongo.collection.find.  Read the pymongo documentation for
+                the parameters.
+            collection (str): Specifies which part of the configuration
+                the dictionaries in target refer to. Only "templates",
+                "instances" or "localisation" are allowed.
+
+        Returns:
+            The list of dictionaries holding the matching targets.
+
+        Raises:
+            DatabaseError: Raised when the operation could not be completed.
+        """
+        try:
+            self._db[collection].find(**raw_request)
+        except PyMongoError:
+            raise DatabaseError('Error retrieving from Database') from None
+
+
+    def raw_delete(self, raw_request, collection):
+        """
+        Delete entries from the configuration collection
+
+        Args:
+            raw_requeset: A dictionary that is passed unpacked to
+                pymongo.collection.remove.  Read the pymongo documentation for
+                the parameters.
+            collection (str): Specifies which part of the configuration
+                the target should be deleted from (only "instances" is allowed).
+
+        Raises:
+            DatabaseError: Raised when the operation could not be completed.
+        """
+        try:
+            self._db[collection].remove(**raw_request)
+        except PyMongoError:
+            raise DatabaseError('Error deleting object') from None
+
+
 if __name__ == '__main__':
     config = ConfigurationManagerMongoDB()
     config.run()
