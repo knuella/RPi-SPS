@@ -162,9 +162,11 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
             DatabaseError: Raised when the operation could not be completed.
         """
         try:
-            self._db[collection].find(**raw_request)
+            result = self._db[collection].find(**raw_request)
         except PyMongoError:
             raise DatabaseError('Error retrieving from Database') from None
+
+        return list(result)
 
 
     def raw_delete(self, raw_request, collection):
