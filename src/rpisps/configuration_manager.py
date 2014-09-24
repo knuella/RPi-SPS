@@ -88,11 +88,15 @@ class ConfigurationManager():
             MessageFormatError: When the operation is not "read" or
                 the collection is not part of READ_COLLECTIONS.
         """
-        if operation != "read":
+        if operation not in ("read", "raw_read"):
             raise MessageFormatError()
         if collection not in READ_COLLECTIONS:
             raise MessageFormatError()
-        return self.read(targets, collection)
+
+        if "read" == operation:
+            return self.read(targets, collection)
+        elif "raw_read" == operation:
+            return self.raw_read(targets, collection)
 
 
     def handle_write_value(self, operation, targets, collection):
@@ -118,15 +122,15 @@ class ConfigurationManager():
         """
         if collection not in WRITE_COLLECTIONS:
             raise MessageFormatError()
-        if operation not in ("create", "update", "delete"):
+        if operation not in ("create", "update", "delete",
+                             "raw_create", "raw_update", "raw_delete"):
             raise MessageFormatError()
 
-        if "create" == operation:
-            return self.create(targets, collection)
-        elif "update" == operation:
-            return self.update(targets, collection)
-        elif "delete" == operation:
-            return self.delete(targets, collection)
+        return getattr(self, operation)(targets, collection)
+
+
+    def reply_error(self, dst):
+        self.context.send_reply(dst, status=1)
 
 
     def handle_request(self, request):
@@ -165,7 +169,7 @@ class ConfigurationManager():
         pass
 
 
-    def create(self, target, collection):
+    def create(self, targets, collection):
         """
         Add the target to the configuration collection
 
@@ -243,3 +247,35 @@ class ConfigurationManager():
                 than one target at a time.
         """
         raise NotImplementedError
+
+
+    # The raw_* variants of the normal CRUD methods are more a
+    # work-around than an actual feature.  Cases that require the use
+    # of these methods should be abstracted and put in the normal
+    # methods.
+    def raw_create(self, raw_request, collection):
+        """
+        The exact usage of 'raw_request' depends on the used backend.
+        """
+        raise UnsupportedOperation("The backend has not implemented raw_create")
+
+
+    def raw_read(self, raw_request, collection):
+        """
+        The exact usage of 'raw_request' depends on the used backend.
+        """
+        raise UnsupportedOperation("The backend has not implemented raw_read")
+
+
+    def raw_update(self, raw_request, collection):
+        """
+        The exact usage of 'raw_request' depends on the used backend.
+        """
+        raise UnsupportedOperation("The backend has not implemented raw_update")
+
+
+    def raw_delete(self, raw_request, collection):
+        """
+        The exact usage of 'raw_request' depends on the used backend.
+        """
+        raise UnsupportedOperation("The backend has not implemented raw_delete")
