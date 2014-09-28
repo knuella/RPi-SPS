@@ -162,7 +162,7 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
             DatabaseError: Raised when the operation could not be completed.
         """
         try:
-            result = self._db[collection].find(**raw_request)
+            result = self._db[collection].find(raw_request)
         except PyMongoError:
             raise DatabaseError('Error retrieving from Database') from None
 
@@ -184,7 +184,7 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
             DatabaseError: Raised when the operation could not be completed.
         """
         try:
-            self._db[collection].remove(**raw_request)
+            self._db[collection].remove(raw_request)
         except PyMongoError:
             raise DatabaseError('Error deleting object') from None
 
