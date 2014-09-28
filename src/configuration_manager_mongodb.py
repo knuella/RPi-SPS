@@ -72,13 +72,13 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
 
 
     def create(self, targets, collection):
-        self.sanity_check_modifying(targets, need_id=False)
+        #self.sanity_check_modifying(targets, need_id=False)
 
         try:
-            object_id = self._db[collection].insert(targets[0])
+            object_id = self._db[collection].insert(targets)
         except PyMongoError:
             # TODO: be more specific
-            raise DatabaseError("Error creating new document", targets[0])
+            raise DatabaseError("Error creating new document", targets)
         return [object_id]
 
 
