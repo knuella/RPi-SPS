@@ -114,10 +114,10 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
 
 
     def update(self, targets, collection):
-        self.sanity_check_modifying(targets, need_id=True)
+        #self.sanity_check_modifying(targets, need_id=True)
 
         try:
-            result = self._db[collection].update(targets[0], multi=False)
+            result = self._db[collection].update(targets[0], targets[1])
         except PyMongoError:
             raise DatabaseError('Error updating object', targets[0])
 
@@ -125,6 +125,8 @@ class ConfigurationManagerMongoDB(ConfigurationManager):
             raise DatabaseError('Object to update did not exist', targets)
         elif result["n"] > 1:
             raise DatabaseError('Deleted more than one entry', targets)
+        
+        return list(result)
 
 
     def sanity_check_modifying(self, targets, need_id=False):
